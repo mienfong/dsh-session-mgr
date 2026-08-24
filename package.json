@@ -31,7 +31,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/<your-account>/dsh-session-mgr.git"
+    "url": "git+https://github.com/mienfong/dsh-session-mgr.git"
   },
   "license": "MIT",
   "dsh": {
