@@ -1,0 +1,56 @@
+{
+  "name": "dsh-session-mgr",
+  "version": "0.5.0",
+  "description": "Session manager for the DeepSeek Harness web UI: move, archive, restore, backup/export and import conversations across workspaces. Trilingual (English / 简体中文 / 繁體中文). · DSH Web 外掛「會話管理」：移動、歸檔、恢復、可攜式備份(匯出)與匯入、刪除會話，支援中（簡/繁）英文介面。",
+  "type": "module",
+  "main": "lib/host.js",
+  "exports": {
+    ".": "./lib/host.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "web",
+    "workspace",
+    "session",
+    "session-management",
+    "move-session",
+    "backup",
+    "archived-sessions"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/<your-account>/dsh-session-mgr.git"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@deepseek-ai/cordis": "^4.0.1"
+  }
+}

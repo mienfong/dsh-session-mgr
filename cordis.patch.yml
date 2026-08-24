@@ -1,0 +1,6 @@
+# dsh-session-mgr bundle patch: mounts the session-manager plugin over the web
+# profile. The host half registers the /dsh-session-mgr/* API; the client half
+# contributes the "會話管理" settings page and the "移動到工作區" header action.
+- insert:
+    - id: dsh-session-mgr
+      name: dsh-session-mgr
