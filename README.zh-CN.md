@@ -50,9 +50,9 @@
 
 ## 截图
 
-**会话语管理页**
+**会话管理页**
 
-![会话语管理](docs/screenshots/session-manager.png)
+![会话管理](docs/screenshots/session-manager.png)
 
 **弹窗**
 
