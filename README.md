@@ -46,7 +46,7 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 2. Copy that package to machine B.
 3. On machine B: **Import** the package and pick the workspace/folder where the session should live → the import rewrites the `cwd` to B's path (the conversation content is untouched), and the session resumes seamlessly on B.
 
-> 中文说明：工作区 = 文件夹，会通过 header 的 `cwd` 关联，而 `cwd` 是每台机器专属的绝对路径。因此 A 机备份的会话要搬到 B 机继续，需要用「汇入」把 `cwd` 重设为 B 机上存在的路径。
+> **Cross-machine note:** a workspace is a folder, and a session is tied to it through the header's `cwd` — an absolute path that is specific to each machine. So to continue a conversation that was backed up on machine A, use **Import** on machine B to rewrite the `cwd` to a path that exists there.
 
 ## Screenshots
 
