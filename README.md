@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**简体中文**](README.zh-CN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.4.0-blueviolet)
+[**简体中文**](README.zh-CN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.5.0-blueviolet)
 
 ---
 
@@ -50,7 +50,26 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 
 ## Screenshots
 
-<!-- TODO: add your own screenshots of Settings → Session Manager here -->
+The shots below are recommended for this project. Drop PNGs into `docs/screenshots/` and link them under each row — the section renders automatically once the files exist.
+
+| File | What it shows |
+|---|---|
+| `docs/screenshots/session-manager.png` | The **Settings → Session Manager** page: workspace groups, archived/running/live badges, per-row + batch actions. |
+| `docs/screenshots/move-dialog.png` | The **Move to Workspace** dialog with the destination picker. |
+| `docs/screenshots/backup.png` | The portable **Backup / Export** dialog. |
+| `docs/screenshots/import.png` | The **Import** dialog (source package path + target workspace). |
+| `docs/screenshots/delete-confirm.png` | The red **Delete** double-confirm dialog. |
+
+<details>
+<summary>Placeholder previews</summary>
+
+- `docs/screenshots/session-manager.png`
+- `docs/screenshots/move-dialog.png`
+- `docs/screenshots/backup.png`
+- `docs/screenshots/import.png`
+- `docs/screenshots/delete-confirm.png`
+
+</details>
 
 ## Requirements
 
@@ -87,10 +106,12 @@ Put the package into your profile's `node_modules` (e.g. `pnpm add file:...` or 
    - **Move selected…** → pick a destination workspace (or type any existing folder to make it "Ungrouped").
    - **Archive selected…** → hide them from the sidebar (position kept).
    - **Restore selected…** → un-archive them back to their place.
-   - **Backup selected…** → choose a backup folder; each session is copied as an `<id>` folder.
+   - **Backup selected…** → export each session as a **portable package** (an `<id>` folder with `manifest.json` and the full log) to a folder you choose.
+   - **Import…** → install a portable package from another machine into a chosen workspace/folder (safe to run on machine B).
    - **Delete selected…** (red) → a red warning dialog asks you to **confirm again** before anything is erased.
 
 4. While a conversation is open, the header also shows **Move to Workspace** to relocate it in one click.
+5. Use the **简体/繁體** switch in the toolbar (shown when the harness language is Chinese) to toggle the Chinese script.
 
 ## HTTP API
 
@@ -134,6 +155,14 @@ The pure helpers in `lib/host.js` (path encoding, zstd frame scan, header rewrit
 node scripts/test-move.mjs   # synthetic-data tests
 node scripts/test-real.mjs   # tests against a COPY of a real session
 ```
+`test-real.mjs` needs a real session dir as its argument (or `DSH_REAL_SAMPLE`):
+```sh
+node scripts/test-real.mjs "C:\path\to\<session-id>\"
+```
+
+## Contributing
+
+Found a bug or want a feature? Open an [issue](../../issues) or a pull request. Please keep the code style (plain ESM, no build step) and add/run tests for any change to `lib/host.js`.
 
 ## License
 

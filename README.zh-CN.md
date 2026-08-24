@@ -4,7 +4,7 @@
 
 在设置页直接对「会话」与「已归档会话」进行移动、归档、恢复、备份与删除，并可跨工作区操作。
 
-[**English**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.4.0-blueviolet)
+[**English**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.5.0-blueviolet)
 
 ---
 
@@ -48,7 +48,26 @@
 
 ## 截图
 
-<!-- TODO: 请在此加入「设置 → 会话管理」页面的截图 -->
+建议为该外挂补充以下截图。把 PNG 放进 `docs/screenshots/` 并放在对应的行下即可，文件存在后会自动渲染。
+
+| 文件 | 展示内容 |
+|---|---|
+| `docs/screenshots/session-manager.png` | 「设置 → 会话管理」页：工作区分组、已归档/运行中/已打开徽章、单条与批量操作。 |
+| `docs/screenshots/move-dialog.png` | 「移动到工作区」弹窗（目标选择器）。 |
+| `docs/screenshots/backup.png` | 可携式「备份 / 汇出」弹窗。 |
+| `docs/screenshots/import.png` | 「汇入」弹窗（选择包路径 + 目标工作区）。 |
+| `docs/screenshots/delete-confirm.png` | 红色「删除」二次确认弹窗。 |
+
+<details>
+<summary>占位预览</summary>
+
+- `docs/screenshots/session-manager.png`
+- `docs/screenshots/move-dialog.png`
+- `docs/screenshots/backup.png`
+- `docs/screenshots/import.png`
+- `docs/screenshots/delete-confirm.png`
+
+</details>
 
 ## 环境需求
 
@@ -85,10 +104,12 @@ dsh web
    - **移动选中…** → 选择目标工作区（或输入任意已存在文件夹，使其成为「未分组」）。
    - **归档选中…** → 从侧栏隐藏（保留原位置）。
    - **恢复选中…** → 取消归档，回到原位置。
-   - **备份选中…** → 选择备份文件夹；每个会话复制为一个 `<id>` 文件夹。
+   - **备份选中…** → 把每个会话**汇出为可携式包**（一个含 `manifest.json` 与完整日志的 `<id>` 文件夹）到指定文件夹。
+   - **汇入…** → 把另一台机器的可携式包安装到所选的会话所在工作区/文件夹（在 B 机执行）。
    - **删除选中…**（红色）→ 红色警告弹窗要求**再次确认**后才会真正删除。
 
 4. 打开会话时，标题栏还有「移动到工作区」按钮，可一键移动当前会话。
+5. 工具栏的 **简体/繁體** 切换（只有当 Harness 语言设为中文时才显示）用于切换中文简繁。
 
 ## HTTP API
 
@@ -135,6 +156,14 @@ DSH 的「工作区」本质上是文件夹：会话通过 session header 的 `c
 node scripts/test-move.mjs   # 合成数据测试
 node scripts/test-real.mjs   # 用真实存档的「副本」测试
 ```
+`test-real.mjs` 需要传入一个真实会话目录作为参数（或设置 `DSH_REAL_SAMPLE`）：
+```sh
+node scripts/test-real.mjs "C:\path\to\<session-id>\"
+```
+
+## 贡献
+
+发现 bug 或想要新功能？请提交 [issue](../../issues) 或 PR。请遵循现有代码风格（纯 ESM、无构建步骤），并针对 `lib/host.js` 的改动补充/运行测试。
 
 ## 授权
 
