@@ -48,26 +48,15 @@
 
 ## 截图
 
-建议为该外挂补充以下截图。把 PNG 放进 `docs/screenshots/` 并放在对应的行下即可，文件存在后会自动渲染。
+**会话语管理页**
 
-| 文件 | 展示内容 |
-|---|---|
-| `docs/screenshots/session-manager.png` | 「设置 → 会话管理」页：工作区分组、已归档/运行中/已打开徽章、单条与批量操作。 |
-| `docs/screenshots/move-dialog.png` | 「移动到工作区」弹窗（目标选择器）。 |
-| `docs/screenshots/backup.png` | 可携式「备份 / 汇出」弹窗。 |
-| `docs/screenshots/import.png` | 「汇入」弹窗（选择包路径 + 目标工作区）。 |
-| `docs/screenshots/delete-confirm.png` | 红色「删除」二次确认弹窗。 |
+![会话语管理](docs/screenshots/session-manager.png)
 
-<details>
-<summary>占位预览</summary>
+**弹窗**
 
-- `docs/screenshots/session-manager.png`
-- `docs/screenshots/move-dialog.png`
-- `docs/screenshots/backup.png`
-- `docs/screenshots/import.png`
-- `docs/screenshots/delete-confirm.png`
-
-</details>
+| 移动到工作区 | 备份 / 汇出 | 汇入 | 删除（二次确认） |
+|---|---|---|---|
+| ![移动](docs/screenshots/move-dialog.png) | ![备份](docs/screenshots/backup.png) | ![汇入](docs/screenshots/import.png) | ![删除](docs/screenshots/delete-confirm.png) |
 
 ## 环境需求
 

@@ -50,26 +50,15 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 
 ## Screenshots
 
-The shots below are recommended for this project. Drop PNGs into `docs/screenshots/` and link them under each row — the section renders automatically once the files exist.
+**Session Manager page**
 
-| File | What it shows |
-|---|---|
-| `docs/screenshots/session-manager.png` | The **Settings → Session Manager** page: workspace groups, archived/running/live badges, per-row + batch actions. |
-| `docs/screenshots/move-dialog.png` | The **Move to Workspace** dialog with the destination picker. |
-| `docs/screenshots/backup.png` | The portable **Backup / Export** dialog. |
-| `docs/screenshots/import.png` | The **Import** dialog (source package path + target workspace). |
-| `docs/screenshots/delete-confirm.png` | The red **Delete** double-confirm dialog. |
+![Session Manager](docs/screenshots/session-manager.png)
 
-<details>
-<summary>Placeholder previews</summary>
+**Dialogs**
 
-- `docs/screenshots/session-manager.png`
-- `docs/screenshots/move-dialog.png`
-- `docs/screenshots/backup.png`
-- `docs/screenshots/import.png`
-- `docs/screenshots/delete-confirm.png`
-
-</details>
+| Move to Workspace | Backup / Export | Import | Delete (double-confirm) |
+|---|---|---|---|
+| ![Move](docs/screenshots/move-dialog.png) | ![Backup](docs/screenshots/backup.png) | ![Import](docs/screenshots/import.png) | ![Delete](docs/screenshots/delete-confirm.png) |
 
 ## Requirements
 
