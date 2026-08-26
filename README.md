@@ -52,13 +52,13 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 
 **Session Manager page**
 
-![Session Manager](docs/screenshots/session-manager.png)
+![Session Manager](docs/screenshots/session-manager_EN.png)
 
 **Dialogs**
 
 | Move to Workspace | Backup / Export | Import | Delete (double-confirm) |
 |---|---|---|---|
-| ![Move](docs/screenshots/move-dialog.png) | ![Backup](docs/screenshots/backup.png) | ![Import](docs/screenshots/import.png) | ![Delete](docs/screenshots/delete-confirm.png) |
+| ![Move](docs/screenshots/move-dialog_EN.png) | ![Backup](docs/screenshots/backup_EN.png) | ![Import](docs/screenshots/import_EN.png) | ![Delete](docs/screenshots/delete-confirm_EN.png) |
 
 ## Requirements
 
