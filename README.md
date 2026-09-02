@@ -112,11 +112,11 @@ The host half exposes a small JSON API under `/dsh-session-mgr/*` (all `POST`):
 | `/dsh-session-mgr/move` | `{ sessionId, targetPath }` | `{ ok, sessionId, archived, from, to }` |
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
-| `/dsh-session-mgr/backup` | `{ sessionId, targetDir }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, manifest }` |
-| `/dsh-session-mgr/import` | `{ sourceDir, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
+| `/dsh-session-mgr/backup` | `{ sessionId, targetDir, format }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, format, manifest }` |
+| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
 | `/dsh-session-mgr/delete` | `{ sessionId }` | `{ ok, sessionId, deleted, reason?, path, sizeBytes?, cwd? }` |
 
-`targetPath` accepts either a real directory path or a registered workspace id. `backup` produces the portable package; `import` installs it on this machine (remapping `cwd` to `targetPath`).
+`targetPath` accepts either a real directory path or a registered workspace id. `backup` (`format: "zip"` for Windows or `"targz"` for Linux) produces a **portable archive file** (`<sessionId>.zip` / `<sessionId>.tar.gz`) that `import` reads back on this machine (remapping `cwd` to `targetPath`).
 
 ## How It Works
 

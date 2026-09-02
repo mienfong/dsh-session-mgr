@@ -1,7 +1,7 @@
 {
   "name": "dsh-session-mgr",
-  "version": "0.5.0",
-  "description": "Session manager for the DeepSeek Harness web UI: move, archive, restore, backup/export and import conversations across workspaces. Trilingual (English / 简体中文 / 繁體中文). · DSH Web 外掛「會話管理」：移動、歸檔、恢復、可攜式備份(匯出)與匯入、刪除會話，支援中（簡/繁）英文介面。",
+  "version": "0.6.0",
+  "description": "Session manager for the DeepSeek Harness web UI: move, archive, restore, backup/export and import conversations across workspaces. Trilingual (English / 简体中文 / 繁體中文). · DSH Web 外掛「會話管理」：移動、歸檔、恢復、可攜式備份(匯出成壓縮檔)與匯入、刪除會話，支援中（簡/繁）英文介面。",
   "type": "module",
   "main": "lib/host.js",
   "exports": {

@@ -112,12 +112,11 @@ dsh web
 | `/dsh-session-mgr/move` | `{ sessionId, targetPath }` | `{ ok, sessionId, archived, from, to }` |
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
-| `/dsh-session-mgr/backup` | `{ sessionId, targetDir }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes }` |
-| `/dsh-session-mgr/backup` | `{ sessionId, targetDir }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, manifest }` |
-| `/dsh-session-mgr/import` | `{ sourceDir, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
+| `/dsh-session-mgr/backup` | `{ sessionId, targetDir, format }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, format, manifest }` |
+| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
 | `/dsh-session-mgr/delete` | `{ sessionId }` | `{ ok, sessionId, deleted, reason?, path, sizeBytes?, cwd? }` |
 
-`targetPath` 接受真实路径或已注册的工作区 ID。`backup` 生成可携式包；`import` 在本机安装（把 `cwd` 重设为 `targetPath`）。
+`targetPath` 接受真实路径或已注册的工作区 ID。`backup`（`format: "zip"` 用于 Windows，`"targz"` 用于 Linux）产生一个**可携式压缩档**（`<sessionId>.zip` / `<sessionId>.tar.gz`）；`import` 在本机读取该档案并安装（把 `cwd` 重设为 `targetPath`）。
 
 ## 原理
 
