@@ -1,6 +1,13 @@
-// scripts/test-archive.mjs — validate makeZip/readZip and makeTarGz/readTarGz round trips.
+// scripts/test-archive.mjs — validate makeZip/readZip, makeTarGz/readTarGz,
+// and headerOf() against BOTH the old and new DSH persistence.list() shapes.
 import assert from "node:assert/strict";
-import { makeZip, readZip, makeTarGz, readTarGz } from "../lib/host.js";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf } from "../lib/host.js";
+
+// headerOf: old DSH returns bare headers; new DSH (>=0.1.2) returns { header, revision, sizeBytes }.
+assert.equal(headerOf({ id: "s-a", cwd: "C:\\x", createdAt: 1 }).id, "s-a", "old shape");
+assert.equal(headerOf({ header: { id: "s-b", cwd: "D:\\y", createdAt: 2 }, revision: "r", sizeBytes: 3 }).id, "s-b", "new shape");
+assert.equal(headerOf({ header: null }).id, undefined, "null header degrades to entry (no id)");
+assert.equal(headerOf(undefined), undefined, "undefined entry");
 
 const files = [
   { name: "manifest.json", data: Buffer.from('{"sessionId":"s1","cwd":"C:\\\\x\\\\y"}') },
