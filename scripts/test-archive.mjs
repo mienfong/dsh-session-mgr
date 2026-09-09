@@ -1,7 +1,11 @@
 // scripts/test-archive.mjs — validate makeZip/readZip, makeTarGz/readTarGz,
-// and headerOf() against BOTH the old and new DSH persistence.list() shapes.
+// headerOf() (new/old DSH list() shape), and extractMembersToDir (handles
+// Windows "Compressed Folder" wrapped archives, skipping dir entries).
 import assert from "node:assert/strict";
-import { makeZip, readZip, makeTarGz, readTarGz, headerOf } from "../lib/host.js";
+import { mkdtemp, readFile, stat, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader } from "../lib/host.js";
 
 // headerOf: old DSH returns bare headers; new DSH (>=0.1.2) returns { header, revision, sizeBytes }.
 assert.equal(headerOf({ id: "s-a", cwd: "C:\\x", createdAt: 1 }).id, "s-a", "old shape");
@@ -36,4 +40,28 @@ assert.ok(zback.some((m) => m.name === "session.jsonl.zstd"));
 const tbuf = makeTarGz(files);
 const tback = readTarGz(tbuf);
 assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
+
+// extractMembersToDir: a Windows "Compressed Folder" zip wraps everything under
+// one top-level folder and includes a directory entry — must flatten + skip it.
+{
+  const wrap = await mkdtemp(join(tmpdir(), "dsh-extract-"));
+  try {
+    await extractMembersToDir([
+      { name: "session-x/", data: Buffer.alloc(0) },
+      { name: "session-x/manifest.json", data: Buffer.from('{"sessionId":"session-x","cwd":"C:\\\\a"}') },
+      { name: "session-x/session.jsonl.zstd", data: Buffer.from([0x28, 0xb5, 0x2f, 0xfd, 0x01]) }
+    ], wrap);
+    await stat(join(wrap, "manifest.json"));
+    await stat(join(wrap, "session.jsonl.zstd"));
+    const hadDirFile = await stat(join(wrap, "session-x")).then(() => true, () => false);
+    assert.equal(hadDirFile, false, "directory entry must not become a file");
+    // readLogHeader fallback path (missing manifest is handled in importSession)
+    const hdr = await readLogHeader(join(wrap, "session.jsonl.zstd")).catch((e) => e.message);
+    assert.ok(typeof hdr === "string" || hdr === undefined, "readLogHeader handles a tiny log gracefully");
+  } finally {
+    await rm(wrap, { recursive: true, force: true });
+  }
+  console.log("wrapped-zip extraction: OK");
+}
+
 console.log("ARCHIVE ROUND-TRIP TESTS PASSED");

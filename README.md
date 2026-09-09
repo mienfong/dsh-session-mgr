@@ -1,112 +1,112 @@
-# dsh-session-mgr
+# dsh-session-mgr（会话管理）
 
-**Session Manager for the DeepSeek Harness Web UI**
+**DeepSeek Harness Web 会话语管理外挂**
 
-Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
+在设置页直接对「会话」与「已归档会话」进行移动、归档、恢复、备份与删除，并可跨工作区操作。
 
-[**简体中文**](README.zh-CN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.5.0-blueviolet)
+[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.2-blueviolet)
 
 ---
 
-## Table of Contents
+## 目录
 
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
+- [功能](#功能)
+- [截图](#截图)
+- [环境需求](#环境需求)
+- [安装](#安装)
+- [使用](#使用)
 - [HTTP API](#http-api)
-- [How It Works](#how-it-works)
-- [Safety](#safety)
-- [Development](#development)
-- [License](#license)
+- [原理](#原理)
+- [安全机制](#安全机制)
+- [开发](#开发)
+- [授权](#授权)
 
 ---
 
-## Features
+## 功能
 
-| Feature | Description |
+| 功能 | 说明 |
 |---|---|
-| **Move** | Relocate any conversation (including archived ones) to any workspace. |
-| **Archive** | Hide a conversation from the sidebar; its workspace position and order are kept. |
-| **Restore** | Un-archive a conversation back to its original place. |
-| **Backup / Export** | Produce a **portable package** — a `<sessionId>` folder with a `manifest.json` and the full session log. Transfer it to another machine and **Import** there to resume the conversation seamlessly. |
-| **Import** | Install a portable package on this machine, rewriting the session `cwd` to a workspace/folder that exists here — so a conversation started on another machine continues here. |
-| **Delete** | Permanently erase a conversation from disk, behind a red **double-confirm** dialog. |
-| **Trilingual UI** | English / 简体中文 / 繁體中文 — follows the harness language setting; the 简体/繁體 switch lives inside the plugin page. |
-| **Header quick action** | "Move to Workspace" for the currently open conversation. |
+| **移动** | 把任意会话（含已归档会话）移动到任意工作区。 |
+| **归档** | 从侧栏隐藏会话；保留原工作区位置与排序。 |
+| **恢复** | 取消归档，把会话恢复到原位置。 |
+| **备份 / 汇出** | 生成**可携式包**——一个含 `manifest.json` 与完整会话日志的 `<sessionId>` 文件夹。复制到另一台机器后用「汇入」，会话即可无缝继续。 |
+| **汇入** | 在本机安装可携式包，并把会话的 `cwd` 重设为此处存在的工作区/文件夹——让另一台机器上开始的会话在这里继续。 |
+| **删除** | 从磁盘永久删除会话，带红色**二次确认**弹窗。 |
+| **三语界面** | 英文 / 简体中文 / 繁体中文——跟随 Harness 语言设置；简体/繁体切换位于插件页面内。 |
+| **标题栏快捷操作** | 当前打开的会话可一键「移动到工作区」。 |
 
-Both **per-row** and **batch** operations are supported (move / archive / restore / backup / delete selected).
+支持**单条**与**批量**操作（移动 / 归档 / 恢复 / 备份 / 删除选中）。
 
-### Cross-machine portability
+### 跨机器可携
 
-A session belongs to a workspace through its header `cwd` — an absolute path that is machine-specific. So a plain folder copy would break on another machine (the path no longer exists). Instead:
+会话通过 header 的 `cwd` 关联工作区，而 `cwd` 是每台机器专属的绝对路径——直接复制文件夹到另一台机器会因路径不存在而无法继续。因此：
 
-1. On machine A: **Backup** a session → you get a portable package.
-2. Copy that package to machine B.
-3. On machine B: **Import** the package and pick the workspace/folder where the session should live → the import rewrites the `cwd` to B's path (the conversation content is untouched), and the session resumes seamlessly on B.
+1. 在 A 机：对会话点「备份」，得到可携式包；
+2. 把该包复制到 B 机；
+3. 在 B 机：「汇入」该包并选择会话应归属的工作区/文件夹——汇入会把 `cwd` 重设为 B 机的路径（会话内容不变），会话即可在 B 机无缝继续。
 
-> **Cross-machine note:** a workspace is a folder, and a session is tied to it through the header's `cwd` — an absolute path that is specific to each machine. So to continue a conversation that was backed up on machine A, use **Import** on machine B to rewrite the `cwd` to a path that exists there.
+> 工作区 = 文件夹，会通过 header 的 `cwd` 关联，而 `cwd` 是每台机器专属的绝对路径。因此 A 机备份的会话要搬到 B 机继续，需要用「汇入」把 `cwd` 重设为 B 机上存在的路径。
 
-## Screenshots
+## 截图
 
-**Session Manager page**
+**会话管理页**
 
-![Session Manager](docs/screenshots/session-manager_EN.png)
+![会话管理](docs/screenshots/session-manager.png)
 
-**Dialogs**
+**弹窗**
 
-| Move to Workspace | Backup / Export | Import | Delete (double-confirm) |
+| 移动到工作区 | 备份 / 汇出 | 汇入 | 删除（二次确认） |
 |---|---|---|---|
-| ![Move](docs/screenshots/move-dialog_EN.png) | ![Backup](docs/screenshots/backup_EN.png) | ![Import](docs/screenshots/import_EN.png) | ![Delete](docs/screenshots/delete-confirm_EN.png) |
+| ![移动](docs/screenshots/move-dialog.png) | ![备份](docs/screenshots/backup.png) | ![汇入](docs/screenshots/import.png) | ![删除](docs/screenshots/delete-confirm.png) |
 
-## Requirements
+## 环境需求
 
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) with the **web** profile (`dsh web`)
-- Node.js `^22.19.0 || >=24.0.0` (the harness runtime)
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 **web** profile（`dsh web`）
+- Node.js `^22.19.0 || >=24.0.0`（Harness 运行时）
 
-## Installation
+## 安装
 
-### Method 1 — install into the web profile (recommended)
+### 方法一：安装到 web profile（推荐）
 
 ```sh
-# 1. Clone / download this repo, then install it into your web profile.
-#    Replace <path> with the absolute path of the dsh-session-mgr folder.
+# 1. 克隆/下载本仓库，然后安装到你的 web profile。
+#    把 <path> 换成 dsh-session-mgr 文件夹的绝对路径。
 dsh plugin --profile web add "file:<path>\dsh-session-mgr"
 
-# 2. Add the bundle to your web profile's package.json
-#    (the `dsh.profile.bundles` array, alongside the other plugin entries):
-#    "dsh-session-mgr"
+# 2. 在 web profile 的 package.json 中，把 "dsh-session-mgr" 加入 dsh.profile.bundles
+#    （与其他插件条目并列）。
 
-# 3. Restart the web server for the plugin to load.
+# 3. 重新启动 web 服务器使外挂生效。
 dsh web
 ```
 
-### Method 2 — manual
+### 方法二：手动安装
 
-Put the package into your profile's `node_modules` (e.g. `pnpm add file:...` or a symlink), then add `"dsh-session-mgr"` to the `dsh.profile.bundles` list in the profile's `package.json`, and restart.
+把本包放进 profile 的 `node_modules`（例如 `pnpm add file:...` 或 symlink），
+再把 `"dsh-session-mgr"` 加入 profile `package.json` 的 `dsh.profile.bundles`，然后重启。
 
-## Usage
+## 使用
 
-1. Open **Settings → Session Manager**.
-2. All conversations are grouped by their current workspace; archived ones carry a badge.
-3. Use the per-row buttons, or tick the checkboxes and use the batch toolbar:
+1. 打开「设置 → 会话管理」。
+2. 所有会话按当前工作区分组；已归档的会话带有徽章标记。
+3. 使用每行的按钮，或勾选复选框后使用工具栏批量操作：
 
-   - **Move selected…** → pick a destination workspace (or type any existing folder to make it "Ungrouped").
-   - **Archive selected…** → hide them from the sidebar (position kept).
-   - **Restore selected…** → un-archive them back to their place.
-   - **Backup selected…** → export each session as a **portable package** (an `<id>` folder with `manifest.json` and the full log) to a folder you choose.
-   - **Import…** → install a portable package from another machine into a chosen workspace/folder (safe to run on machine B).
-   - **Delete selected…** (red) → a red warning dialog asks you to **confirm again** before anything is erased.
+   - **移动选中…** → 选择目标工作区（或输入任意已存在文件夹，使其成为「未分组」）。
+   - **归档选中…** → 从侧栏隐藏（保留原位置）。
+   - **恢复选中…** → 取消归档，回到原位置。
+   - **备份选中…** → 把每个会话**汇出为可携式包**（一个含 `manifest.json` 与完整日志的 `<id>` 文件夹）到指定文件夹。
+   - **汇入…** → 把另一台机器的可携式包安装到所选的会话所在工作区/文件夹（在 B 机执行）。
+   - **删除选中…**（红色）→ 红色警告弹窗要求**再次确认**后才会真正删除。
 
-4. While a conversation is open, the header also shows **Move to Workspace** to relocate it in one click.
-5. Use the **简体/繁體** switch in the toolbar (shown when the harness language is Chinese) to toggle the Chinese script.
+4. 打开会话时，标题栏还有「移动到工作区」按钮，可一键移动当前会话。
+5. 工具栏的 **简体/繁體** 切换（只有当 Harness 语言设为中文时才显示）用于切换中文简繁。
 
 ## HTTP API
 
-The host half exposes a small JSON API under `/dsh-session-mgr/*` (all `POST`):
+宿主端在 `/dsh-session-mgr/*` 下提供小型 JSON API（均为 `POST`）：
 
-| Endpoint | Request | Response |
+| 端点 | 请求 | 响应 |
 |---|---|---|
 | `/dsh-session-mgr/list` | `{}` | `{ workspaces, sessions, archivedSessionIds, backupDefaultDir }` |
 | `/dsh-session-mgr/move` | `{ sessionId, targetPath }` | `{ ok, sessionId, archived, from, to }` |
@@ -116,43 +116,45 @@ The host half exposes a small JSON API under `/dsh-session-mgr/*` (all `POST`):
 | `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
 | `/dsh-session-mgr/delete` | `{ sessionId }` | `{ ok, sessionId, deleted, reason?, path, sizeBytes?, cwd? }` |
 
-`targetPath` accepts either a real directory path or a registered workspace id. `backup` (`format: "zip"` for Windows or `"targz"` for Linux) produces a **portable archive file** (`<sessionId>.zip` / `<sessionId>.tar.gz`) that `import` reads back on this machine (remapping `cwd` to `targetPath`).
+`targetPath` 接受真实路径或已注册的工作区 ID。`backup`（`format: "zip"` 用于 Windows，`"targz"` 用于 Linux）产生一个**可携式压缩档**（`<sessionId>.zip` / `<sessionId>.tar.gz`）；`import` 在本机读取该档案并安装（把 `cwd` 重设为 `targetPath`）。
 
-## How It Works
+## 原理
 
-In DeepSeek Harness a **workspace is a folder**: a session belongs to a workspace through its session header `cwd`. "Moving" a session therefore:
+DSH 的「工作区」本质上是文件夹：会话通过 session header 的 `cwd` 归属到工作区。
+「移动」＝
 
-1. moves the session artifact folder from `<sessions>/<encoded-old-cwd>/<id>` to `<sessions>/<encoded-new-cwd>/<id>`;
-2. rewrites the `cwd` field of the JSONL log header (the first zstd frame);
-3. updates the in-memory workspace registry so the sidebar regroups immediately — **no restart needed**.
+1. 把会话存档文件夹从 `<sessions>/<旧cwd编码>/<id>` 移到 `<sessions>/<新cwd编码>/<id>`；
+2. 重写 JSONL 存档第一行（zstd 的第一个 frame）的 `cwd`；
+3. 同步更新内存中的 workspace registry（header 索引 + 会话归账），侧栏立即重新分组——**无需重启**。
 
-Archive/unarchive uses the registry-global archive set; an archived session keeps its `sessionIds` slot, so restoring puts it back exactly where it was.
+「归档/恢复」使用 registry 的全域归档集合；归档的会话保留 `sessionIds` 席位，
+因此恢复后会回到原来的位置。
 
-## Safety
+## 安全机制
 
-- **Running** sessions cannot be moved / archived / backed up / deleted (checked via the `agents` service).
-- Idle live sessions are evicted from memory before a move/delete so the next open reads the new header.
-- Existing files/folders with the same name at the destination are **refused** (no silent overwrite).
-- Cross-volume (EXDEV) moves fall back to copy + delete source.
-- Delete requires a **double confirmation** and is irreversible — a backup is recommended.
+- **运行中**的会话不可移动／归档／备份／删除（通过 `agents` 服务判断）。
+- 已打开（live）但闲置的会话在移动／删除前会先从内存卸载，下次打开读取新 header。
+- 目标位置已存在同名文件／文件夹时**拒绝**并报错（不会静默覆盖）。
+- 跨磁盘（EXDEV）移动时自动改为复制＋删除来源。
+- 删除需要**二次确认**且不可恢复——建议先备份。
 
-## Development
+## 开发
 
-The pure helpers in `lib/host.js` (path encoding, zstd frame scan, header rewrite, folder move) are unit-testable:
+`lib/host.js` 中的纯函数（路径编码、zstd frame 扫描、header 重写、文件夹搬移）可独立测试：
 
 ```sh
-node scripts/test-move.mjs   # synthetic-data tests
-node scripts/test-real.mjs   # tests against a COPY of a real session
+node scripts/test-move.mjs   # 合成数据测试
+node scripts/test-real.mjs   # 用真实存档的「副本」测试
 ```
-`test-real.mjs` needs a real session dir as its argument (or `DSH_REAL_SAMPLE`):
+`test-real.mjs` 需要传入一个真实会话目录作为参数（或设置 `DSH_REAL_SAMPLE`）：
 ```sh
 node scripts/test-real.mjs "C:\path\to\<session-id>\"
 ```
 
-## Contributing
+## 贡献
 
-Found a bug or want a feature? Open an [issue](../../issues) or a pull request. Please keep the code style (plain ESM, no build step) and add/run tests for any change to `lib/host.js`.
+发现 bug 或想要新功能？请提交 [issue](../../issues) 或 PR。请遵循现有代码风格（纯 ESM、无构建步骤），并针对 `lib/host.js` 的改动补充/运行测试。
 
-## License
+## 授权
 
 [MIT](LICENSE)

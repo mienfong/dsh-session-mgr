@@ -2,6 +2,12 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-08-28
+
+### Fixed
+- **Import accepts both archive layouts.** A ZIP/tar.gz package is now unpacked whether its files sit at the archive root (a `dsh-session-mgr` backup) *or* wrapped in a top-level folder (e.g. a Windows "Compressed Folder"): directory entries are skipped and a common top-level prefix is stripped. This fixes the `EEXIST` error when importing a folder-wrapped zip.
+- **Import tolerates a missing `manifest.json`.** If only the session log is present, `import` derives the manifest from the log header (sessionId / cwd / createdAt / …), so manually-zipped session folders import too.
+
 ## [0.6.1] - 2026-08-28
 
 ### Fixed
