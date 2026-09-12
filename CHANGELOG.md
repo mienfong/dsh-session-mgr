@@ -4,6 +4,22 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.4] - 2026-09-13
+
+### 中文
+
+#### 修复
+- **导入的会话可能让整台机器的会话列表失效。** JSONL 后端只接受一种日志容器（`zstd`，或 `none`），而且读取时会检查**整个 sessions root**：只要有一个会话目录的 generation log 用了另一种容器，所有会话读取都会失败（设定页与侧边栏的会话列表一片空白/报错）。`import` 以前把来源机器的日志容器原样照搬，因此在容器设定不同的机器之间传输备份（或导入以纯文本日志打包的包）就会触发。现在 `import` 会把日志重新编码成本机容器，连同同目录的其他 generation log 一并处理。
+- **日志文件名与 header 版本必须一致。** 后端会比对该会话的世代编号与 header 里的 `version`（例如「档名代表 v0，但 header 代表 v3」）。手工打包或较旧版本产出的包如今会在导入时自动改名为 header 宣告的世代（如 `session.jsonl` → `session.v3.jsonl.zstd`）。
+- **导入后校验并回滚。** 安装完成后会重新读取每一个日志，确认「容器 = 本机编码」且「档名世代 = header 版本」；不符就删除刚安装的整个目录并回报错误（`import-log-unreadable` / `import-log-encoding` / `import-log-generation`，已提供中英三语讯息），因此不会再留下会让整台机器读不到会话的残缺产物。
+
+### English
+
+#### Fixed
+- **An imported session could break the session list of the whole machine.** The JSONL backend accepts exactly one log container (`zstd`, or `none`) and validates the **entire sessions root** on read: a single session directory whose generation log uses the other container makes every session read fail (the Settings page and sidebar lists go blank / error). `import` used to copy the source machine's container verbatim, so transferring a backup between machines with different container settings (or importing a package built from plaintext logs) triggered it. `import` now re-encodes the log into this machine's container, including any sibling generation logs.
+- **A log's filename must agree with its header version.** The backend cross-checks the generation it reads from the filename against the header's `version` (e.g. "filename identifies v0, but its header identifies v3"). Hand-built packages, or ones produced by older harness versions, are now renamed on import to the generation their header declares (`session.jsonl` → `session.v3.jsonl.zstd`).
+- **Post-install verification with rollback.** After installing, every log is read back and checked for "container = local encoding" and "filename generation = header version"; a mismatch deletes the freshly installed directory and reports an error (`import-log-unreadable` / `import-log-encoding` / `import-log-generation`, with trilingual messages), so an import can no longer strand an artifact that makes the machine's sessions unreadable.
+
 ## [0.6.3] - 2026-09-13
 
 ### 中文

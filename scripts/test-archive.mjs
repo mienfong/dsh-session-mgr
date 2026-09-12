@@ -6,7 +6,8 @@ import { mkdtemp, readFile, stat, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { constants, zstdCompressSync } from "node:zlib";
-import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments } from "../lib/host.js";
+import { writeFile } from "node:fs/promises";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding } from "../lib/host.js";
 
 // collectAttachmentIds: finds sha256:<hex> refs in a plaintext log and across zstd frames.
 {
@@ -122,6 +123,63 @@ assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+// log encoding: a package's log container must match the LOCAL backend. DSH's JSONL
+// backend rejects a session dir whose generation log uses the other container, and
+// checkRootEncoding() then fails for the whole root, so import re-encodes instead.
+{
+  const opts = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
+  assert.equal(logEncodingOf("session.jsonl"), "none");
+  assert.equal(logEncodingOf("session.jsonl.zstd"), "zstd");
+  assert.equal(logEncodingOf("session.v3.jsonl.zstd"), "zstd");
+  assert.equal(logEncodingOf("session.v3.jsonl"), "none");
+  assert.equal(logEncodingOf("manifest.json"), undefined, "manifest is not a session log");
+  assert.equal(logEncodingOf("session.v3.jsonl.bak"), undefined, "non-log suffix");
+  assert.equal(reencodeLogName("session.jsonl", "zstd"), "session.jsonl.zstd");
+  assert.equal(reencodeLogName("session.v3.jsonl.zstd", "none"), "session.v3.jsonl");
+  assert.equal(reencodeLogName("manifest.json", "zstd"), "manifest.json", "non-log names untouched");
+
+  // the filename generation and the header version must agree, or the backend
+  // rejects the session — and with it the whole sessions root — on read
+  assert.equal(sessionLogName(3, "zstd"), "session.v3.jsonl.zstd");
+  assert.equal(sessionLogName(3, "none"), "session.v3.jsonl");
+  assert.equal(sessionLogName(0, "zstd"), "session.jsonl.zstd");
+  assert.equal(sessionLogName(undefined, "none"), "session.jsonl", "unknown version keeps the v0 name");
+  assert.equal(logEncodingOf(sessionLogName(3, "zstd")), "zstd", "canonical name round-trips");
+
+  const cwdValue = "C:\\x";
+  const headerLine = JSON.stringify({ type: "session", version: 3, id: "s-enc", createdAt: 7, cwd: cwdValue, isSeeded: false, delegationDepth: 0 }) + "\n";
+  const events = JSON.stringify({ type: "turn/start", seq: 0, time: 1, data: { turn: 1 } }) + "\n"
+    + JSON.stringify({ type: "turn/end", seq: 1, time: 2, data: {} }) + "\n";
+  const plain = Buffer.from(headerLine + events, "utf8");
+
+  const asZstd = convertLogEncoding(plain, "none", "zstd");
+  // byte-for-byte the backend's own layout: header line alone in frame 1, body in frame 2
+  const expected = Buffer.concat([
+    zstdCompressSync(Buffer.from(headerLine), opts),
+    zstdCompressSync(Buffer.from(events), opts)
+  ]);
+  assert.ok(asZstd.equals(expected), "plaintext -> zstd matches the backend frame layout");
+  assert.equal(scanZstdFrames(asZstd).frames.length, 2, "header frame + body frame");
+  assert.ok(convertLogEncoding(asZstd, "zstd", "none").equals(plain), "zstd -> plaintext is byte-exact");
+  assert.ok(convertLogEncoding(plain, "none", "none").equals(plain), "same encoding is a no-op");
+
+  const headerOnly = convertLogEncoding(Buffer.from(headerLine, "utf8"), "none", "zstd");
+  assert.equal(scanZstdFrames(headerOnly).frames.length, 1, "no empty trailing body frame");
+  assert.ok(convertLogEncoding(headerOnly, "zstd", "none").equals(Buffer.from(headerLine, "utf8")), "header-only round trip");
+
+  // the re-encoded artifact must still parse through the normal header reader
+  const enc = await mkdtemp(join(tmpdir(), "dsh-enc-"));
+  try {
+    await writeFile(join(enc, "session.v3.jsonl.zstd"), asZstd);
+    const read = await readLogHeader(join(enc, "session.v3.jsonl.zstd"));
+    assert.equal(read.id, "s-enc", "re-encoded zstd log header parses");
+    assert.equal(read.cwd, cwdValue, "header cwd survives the round trip");
+  } finally {
+    await rm(enc, { recursive: true, force: true });
+  }
+  console.log("log encoding conversion: OK");
 }
 
 console.log("ARCHIVE ROUND-TRIP TESTS PASSED");
