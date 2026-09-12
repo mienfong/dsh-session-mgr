@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.2-blueviolet)
+[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.3-blueviolet)
 
 ---
 
@@ -30,7 +30,7 @@ Move, archive, restore, backup and delete conversations — including archived o
 | **Move** | Relocate any conversation (including archived ones) to any workspace. |
 | **Archive** | Hide a conversation from the sidebar; its workspace position and order are kept. |
 | **Restore** | Un-archive a conversation back to its original place. |
-| **Backup / Export** | Produce a **portable archive** — a `<sessionId>.zip` / `<sessionId>.tar.gz` containing a `manifest.json` and the full session log. Transfer it to another machine and **Import** there to resume the conversation seamlessly. |
+| **Backup / Export** | Produce a **portable archive** — a `<sessionId>.zip` / `<sessionId>.tar.gz` containing a `manifest.json`, the full session log and every **attachment** the conversation references (images and files). Transfer it to another machine and **Import** there to resume the conversation seamlessly. |
 | **Import** | Install a portable package on this machine, rewriting the session `cwd` to a workspace/folder that exists here — so a conversation started on another machine continues here. |
 | **Delete** | Permanently erase a conversation from disk, behind a red **double-confirm** dialog. |
 | **Trilingual UI** | English / 简体中文 / 繁體中文 — follows the harness language setting; the 简体/繁體 switch lives inside the plugin page. |
@@ -95,7 +95,7 @@ Put the package into your profile's `node_modules` (e.g. `pnpm add file:...` or 
    - **Move selected…** → pick a destination workspace (or type any existing folder to make it "Ungrouped").
    - **Archive selected…** → hide them from the sidebar (position kept).
    - **Restore selected…** → un-archive them back to their place.
-   - **Backup selected…** → export each session as a **portable archive** (a `<sessionId>.zip` / `.tar.gz` with `manifest.json` and the full log) to a folder you choose.
+   - **Backup selected…** → export each session as a **portable archive** (a `<sessionId>.zip` / `.tar.gz` with `manifest.json`, the full log and all attachments) to a folder you choose.
    - **Import…** → install a portable package from another machine into a chosen workspace/folder (safe to run on machine B).
    - **Delete selected…** (red) → a red warning dialog asks you to **confirm again** before anything is erased.
 

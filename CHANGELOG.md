@@ -2,6 +2,16 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.3] - 2026-09-13
+
+### Added
+- **Attachments travel with the backup.** `backup` now scans the session log for every referenced `attachmentId` (images *and* files), packs the matching blobs into the archive under `attachments/v1/objects/<xx>/<sha256>` (plus `file-objects/…` for file attachments), and lists them in `manifest.json` as `attachments`. `import` restores them into this machine's attachment store.
+- Attachment payloads are content-addressed: a blob already present locally is skipped, so importing the same package twice copies each file once.
+
+### Fixed
+- **Restored conversations no longer fail on their first image.** A backup taken before this release carried only the session folder, so after restoring it on another machine `prepareRequestImages` raised `ATTACHMENT_NOT_FOUND` — which the LLM transport reported as a misleading `DeepSeek API stream … failed`. Old packages still import (the log header is used when `manifest.json` has no `attachments`).
+- Verified against DeepSeek Harness **0.1.5-rc.2**: session format version is still `3` and the header shape is unchanged, so no adapter changes were needed.
+
 ## [0.6.2] - 2026-08-28
 
 ### Fixed
