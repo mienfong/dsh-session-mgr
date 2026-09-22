@@ -48,6 +48,8 @@
 
 > 工作区 = 文件夹，会通过 header 的 `cwd` 关联，而 `cwd` 是每台机器专属的绝对路径。因此 A 机备份的会话要搬到 B 机继续，需要用「汇入」把 `cwd` 重设为 B 机上存在的路径。
 
+> **包的 DSH 版本比本机新时：** 包里可能出现本机词表不认识的事件类型。汇入会用本机 harness 自己的事件词表逐条比对，把这类事件补上 `ignorable: true`（可安全跳过）后才安装——只重压含该事件的那一帧，header 帧与其他帧保持原字节与校验和，事件数量、顺序与序号都不变，界面会提示跳过了哪些类型。否则会出现「汇入成功，但打开会话报 `failed to observe session … not marked ignorable`」。
+
 ## 截图
 
 **会话管理页**
@@ -113,10 +115,10 @@ dsh web
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
 | `/dsh-session-mgr/backup` | `{ sessionId, targetDir, format }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, format, manifest }` |
-| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
+| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, unknownEvents, workspaceId?, workspaceTitle? }` |
 | `/dsh-session-mgr/delete` | `{ sessionId }` | `{ ok, sessionId, deleted, reason?, path, sizeBytes?, cwd? }` |
 
-`targetPath` 接受真实路径或已注册的工作区 ID。`backup`（`format: "zip"` 用于 Windows，`"targz"` 用于 Linux）产生一个**可携式压缩档**（`<sessionId>.zip` / `<sessionId>.tar.gz`）；`import` 在本机读取该档案并安装（把 `cwd` 重设为 `targetPath`）。
+`targetPath` 接受真实路径或已注册的工作区 ID。`backup`（`format: "zip"` 用于 Windows，`"targz"` 用于 Linux）产生一个**可携式压缩档**（`<sessionId>.zip` / `<sessionId>.tar.gz`）；`import` 在本机读取该档案并安装（把 `cwd` 重设为 `targetPath`）。`unknownEvents` 是本次汇入因本机不认识而被标记为可跳过的 `{ type, count }` 列表，通常为空数组。
 
 ## 原理
 

@@ -4,6 +4,18 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.5] - 2026-09-22
+
+### 中文
+
+#### 修复
+- **由较新版本 DSH 写出的包，汇入成功但会话打不开。** 会话日志是事件溯源的：读取时只要遇到一个「本机词表里没有、且信封上没有 `ignorable: true` 标记」的事件，后端就会**拒绝整条会话** —— 于是 `import` 回报成功，打开会话却报 `failed to observe session … unknown to this harness and not marked ignorable`。写入方在引入新事件类型时本应自己打上该标记，漏打（例如 alpha 版写出的 `workspace/changes`）就会让旧版读不了。`import` 现在会在安装时用**本机 harness 自己的事件词表**（`@deepseek-ai/dsh-session` 的 `KNOWN_SESSION_EVENT_TYPES`）逐条比对，为这类事件补上 `ignorable: true`：只重压含该事件的那一帧，header 帧与其他帧保持原字节与校验和，事件数量、顺序与序号一律不变。被跳过的事件以 `unknownEvents` 回报（`{ type, count }`），界面同时提示「该包由更新版本的 DSH 写出：N 个本机不认识的事件（类型…）已标记为可跳过」。词表无法解析时行为与之前完全一致，不改动日志。
+
+### English
+
+#### Fixed
+- **A package written by a newer DSH imported into a session that would not open.** Session logs are event-sourced: a single event whose type is absent from this build's vocabulary *and* whose envelope lacks the `ignorable: true` marker makes the backend refuse the **whole session** — the import reported success, then opening the conversation failed with `failed to observe session … unknown to this harness and not marked ignorable`. Writers of a new event type are expected to set that marker themselves; when they forget (an alpha build's `workspace/changes`, for instance) older builds cannot read the log. `import` now compares every event against **the local harness' own vocabulary** (`KNOWN_SESSION_EVENT_TYPES` from `@deepseek-ai/dsh-session`) and adds the missing marker: only the frames containing such an event are re-compressed, the header frame and every other frame keep their original bytes and checksum, and the event count, order and sequence numbering never change. What was skipped is reported as `unknownEvents` (`{ type, count }`) and surfaced in the UI ("this package came from a newer DSH: N event(s) … were marked skippable"). When the vocabulary cannot be resolved the import behaves exactly as before and leaves the log untouched.
+
 ## [0.6.4] - 2026-09-13
 
 ### 中文

@@ -48,6 +48,8 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 
 > **Cross-machine note:** a workspace is a folder, and a session is tied to it through the header's `cwd` — an absolute path that is specific to each machine. So to continue a conversation that was backed up on machine A, use **Import** on machine B to rewrite the `cwd` to a path that exists there.
 
+> **When the package comes from a newer DSH:** it can contain event types this build has no vocabulary for. The import compares every event against the local harness' own vocabulary and adds `ignorable: true` (safe to skip) before installing — only the frames containing such an event are re-compressed, the header frame and every other frame keep their original bytes and checksum, and the event count, order and numbering stay unchanged; the UI reports which types were skipped. Without this you get "import succeeded, but opening the conversation fails with `failed to observe session … not marked ignorable`".
+
 ## Screenshots
 
 **Session Manager page**
@@ -113,10 +115,10 @@ The host half exposes a small JSON API under `/dsh-session-mgr/*` (all `POST`):
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
 | `/dsh-session-mgr/backup` | `{ sessionId, targetDir, format }` | `{ ok, sessionId, cwd, archived, backupPath, sizeBytes, format, manifest }` |
-| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, workspaceId?, workspaceTitle? }` |
+| `/dsh-session-mgr/import` | `{ sourcePath, targetPath }` | `{ ok, sessionId, importPath, cwd, unknownEvents, workspaceId?, workspaceTitle? }` |
 | `/dsh-session-mgr/delete` | `{ sessionId }` | `{ ok, sessionId, deleted, reason?, path, sizeBytes?, cwd? }` |
 
-`targetPath` accepts either a real directory path or a registered workspace id. `backup` (`format: "zip"` for Windows or `"targz"` for Linux) produces a **portable archive file** (`<sessionId>.zip` / `<sessionId>.tar.gz`) that `import` reads back on this machine (remapping `cwd` to `targetPath`).
+`targetPath` accepts either a real directory path or a registered workspace id. `backup` (`format: "zip"` for Windows or `"targz"` for Linux) produces a **portable archive file** (`<sessionId>.zip` / `<sessionId>.tar.gz`) that `import` reads back on this machine (remapping `cwd` to `targetPath`). `unknownEvents` lists the `{ type, count }` events this import had to mark skippable because this build has no vocabulary for them; it is usually an empty array.
 
 ## How It Works
 
