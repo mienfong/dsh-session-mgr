@@ -157,6 +157,17 @@ node scripts/test-real.mjs "C:\path\to\<session-id>\"
 
 发现 bug 或想要新功能？请提交 [issue](../../issues) 或 PR。请遵循现有代码风格（纯 ESM、无构建步骤），并针对 `lib/host.js` 的改动补充/运行测试。
 
+## 贡献者
+
+感谢每一位让这个插件变得更好的人：
+
+| 贡献者 | 贡献 |
+| --- | --- |
+| [@ron0115](https://github.com/ron0115) | 跨版本汇入：为较新 DSH 写出的未知事件补上 `ignorable: true`，修好「汇入成功但会话打不开」（[#3](https://github.com/mienfong/dsh-session-mgr/pull/3)） |
+| [@kaschey9](https://github.com/kaschey9) | 安全与界面审查：回报 zip-slip 路径穿越（[#1](https://github.com/mienfong/dsh-session-mgr/issues/1)）与深色主题下按钮文字不可见（[#2](https://github.com/mienfong/dsh-session-mgr/issues/2)） |
+
+回报 bug、提出问题或送 PR，都算一份贡献 —— 见上方「贡献」。
+
 ## 授权
 
 [MIT](LICENSE)

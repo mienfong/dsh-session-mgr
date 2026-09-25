@@ -155,6 +155,17 @@ node scripts/test-real.mjs "C:\path\to\<session-id>\"
 
 Found a bug or want a feature? Open an [issue](../../issues) or a pull request. Please keep the code style (plain ESM, no build step) and add/run tests for any change to `lib/host.js`.
 
+## Contributors
+
+Thanks to everyone who made this plugin better:
+
+| Contributor | Contribution |
+| --- | --- |
+| [@ron0115](https://github.com/ron0115) | Cross-version import: marks unknown event types written by a newer DSH as `ignorable: true`, fixing "the import succeeds but the conversation will not open" ([#3](https://github.com/mienfong/dsh-session-mgr/pull/3)) |
+| [@kaschey9](https://github.com/kaschey9) | Security and UI review: reported the zip-slip path traversal ([#1](https://github.com/mienfong/dsh-session-mgr/issues/1)) and button labels that are invisible in the dark theme ([#2](https://github.com/mienfong/dsh-session-mgr/issues/2)) |
+
+Reporting a bug, asking a question or sending a PR all count — see [Contributing](#contributing) above.
+
 ## License
 
 [MIT](LICENSE)
