@@ -17,7 +17,7 @@
 //   8. handles the plaintext container too.
 import { constants, zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import assert from "node:assert/strict";
-import { markUnknownEventsIgnorable, scanZstdFrames } from "../lib/host.js";
+import { markUnknownEventsIgnorable, scanZstdFrames, summarizeUnknownEvents } from "../lib/host.js";
 
 const CHECKSUM_OPTIONS = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 const KNOWN = new Set(["user/message", "assistant/message", "step/start"]);
@@ -169,6 +169,34 @@ check("leaves unparsable lines alone", () => {
   const lines = linesOf(framesOf(out.bytes)[1]);
   assert.equal(lines[1], "not json");
   assert.deepEqual(out.events, [{ type: "future/thing", seq: 0 }]);
+});
+
+// A package usually carries BOTH the legacy `session.jsonl` and the current
+// `session.vN.jsonl` generation, and both are marked, so the same event shows up
+// twice in the collected list. The reported summary must count events, not the
+// number of times a copy of one was marked.
+console.log("\nsummarizeUnknownEvents");
+check("counts an event once across the generation copies that carry it", () => {
+  assert.deepEqual(
+    summarizeUnknownEvents([
+      { type: "workspace/changes", seq: 1929 },
+      { type: "workspace/changes", seq: 1929 },
+      { type: "workspace/changes", seq: 1930 },
+      { type: "future/thing", seq: 1931 },
+      { type: "future/thing", seq: 1931 }
+    ]),
+    [{ type: "workspace/changes", count: 2 }, { type: "future/thing", count: 1 }]
+  );
+});
+
+check("counts an unidentifiable event every time", () => {
+  assert.deepEqual(summarizeUnknownEvents([{ type: "future/thing", seq: null }, { type: "future/thing", seq: null }]), [
+    { type: "future/thing", count: 2 }
+  ]);
+});
+
+check("is an empty list for nothing marked", () => {
+  assert.deepEqual(summarizeUnknownEvents([]), []);
 });
 
 console.log(failures === 0 ? "\nall import-compat checks passed" : `\n${failures} check(s) FAILED`);
