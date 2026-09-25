@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.4-blueviolet)
+[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.5-blueviolet)
 
 ---
 
