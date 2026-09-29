@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { constants, zstdCompressSync } from "node:zlib";
 import { writeFile } from "node:fs/promises";
-import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding } from "../lib/host.js";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath } from "../lib/host.js";
 
 // collectAttachmentIds: finds sha256:<hex> refs in a plaintext log and across zstd frames.
 {
@@ -180,6 +180,95 @@ assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
     await rm(enc, { recursive: true, force: true });
   }
   console.log("log encoding conversion: OK");
+}
+
+// archive member names must never escape the extraction directory: zip-slip /
+// tar-slip (CWE-22). One unsafe name refuses the whole package, so a crafted
+// archive can neither overwrite files outside the temp dir nor half-import.
+{
+  const { mkdir } = await import("node:fs/promises");
+  const work = await mkdtemp(join(tmpdir(), "dsh-slip-"));
+  const exists = (p) => stat(p).then(() => true, () => false);
+  try {
+    const dest = join(work, "out");
+    await mkdir(dest, { recursive: true });
+
+    assert.deepEqual(safeArchivePath("manifest.json"), ["manifest.json"]);
+    assert.deepEqual(safeArchivePath("attachments/v1/objects/ab/cd"), ["attachments", "v1", "objects", "ab", "cd"]);
+    assert.deepEqual(safeArchivePath("a//b"), ["a", "b"], "doubled separators collapse");
+    assert.deepEqual(safeArchivePath("./manifest.json"), ["manifest.json"], "leading ./ tolerated (tar czf ... .)");
+    assert.deepEqual(safeArchivePath("a/./b"), ["a", "b"], "dot segments collapse");
+    assert.equal(safeArchivePath("../evil.txt"), undefined);
+    assert.equal(safeArchivePath("a/../../evil.txt"), undefined);
+    assert.equal(safeArchivePath("..\\evil.txt"), undefined, "backslash traversal");
+    assert.equal(safeArchivePath("/abs/evil.txt"), undefined, "absolute path");
+    assert.equal(safeArchivePath("//server/share/evil.txt"), undefined, "UNC path");
+    assert.equal(safeArchivePath("C:\\evil.txt"), undefined, "drive path");
+    assert.equal(safeArchivePath("C:/evil.txt"), undefined, "drive path with slashes");
+    assert.equal(safeArchivePath("a\0b"), undefined, "embedded NUL");
+    assert.equal(safeArchivePath(""), undefined);
+    assert.equal(safeArchivePath("."), undefined);
+    assert.equal(safeArchivePath("./"), undefined, "nothing to extract");
+
+    for (const bad of ["../evil.txt", "a/../../evil.txt", "..\\evil.txt", "/abs/evil.txt", "C:\\evil.txt"]) {
+      const members = [
+        { name: "manifest.json", data: Buffer.from("{}") },
+        { name: bad, data: Buffer.from("pwned") }
+      ];
+      await assert.rejects(
+        () => extractMembersToDir(members, dest),
+        (error) => error.code === "unsafe-archive-member",
+        `refused: ${bad}`
+      );
+      assert.equal(await exists(join(dest, "manifest.json")), false, `nothing extracted for a refused package (${bad})`);
+      assert.equal(await exists(join(work, "evil.txt")), false, `no file escaped (${bad})`);
+    }
+
+    // the same through a real archive: makeZip -> readZip -> extract
+    const evilZip = makeZip([{ name: "a/../../escaped.txt", data: Buffer.from("x") }]);
+    await assert.rejects(
+      () => extractMembersToDir(readZip(evilZip), dest),
+      (error) => error.code === "unsafe-archive-member",
+      "refused from a real zip"
+    );
+    assert.equal(await exists(join(work, "escaped.txt")), false, "nothing escaped the temp dir");
+    assert.equal(await exists(join(work, "a", "escaped.txt")), false, "nothing escaped into a sibling");
+
+    // positive: a flat package and a wrapped package still extract, and a
+    // legitimate top-level attachments/ folder survives the wrapper logic
+    const flat = join(work, "flat");
+    await extractMembersToDir([
+      { name: "manifest.json", data: Buffer.from("{}") },
+      { name: "session.v3.jsonl.zstd", data: Buffer.from([1]) },
+      { name: "attachments/v1/objects/ab/cd", data: Buffer.from("blob") }
+    ], flat);
+    assert.equal(await exists(join(flat, "manifest.json")), true);
+    assert.equal(await exists(join(flat, "attachments", "v1", "objects", "ab", "cd")), true, "top-level attachments/ kept");
+
+    const wrapped = join(work, "wrapped");
+    await extractMembersToDir([
+      { name: "session-x/", data: Buffer.alloc(0) },
+      { name: "session-x/manifest.json", data: Buffer.from("{}") },
+      { name: "session-x/session.v3.jsonl.zstd", data: Buffer.from([1]) },
+      { name: "session-x/attachments/v1/objects/ab/cd", data: Buffer.from("blob") }
+    ], wrapped);
+    assert.equal(await exists(join(wrapped, "manifest.json")), true, "wrapper prefix stripped");
+    assert.equal(await exists(join(wrapped, "attachments", "v1", "objects", "ab", "cd")), true, "attachments kept through the wrapper");
+    assert.equal(await exists(join(wrapped, "session-x")), false, "wrapper folder not recreated");
+
+    // a `tar czf … .` package carries `./`-prefixed members; it must still import
+    const dotted = join(work, "dotted");
+    await extractMembersToDir([
+      { name: "./manifest.json", data: Buffer.from("{}") },
+      { name: "./session.v3.jsonl.zstd", data: Buffer.from([1]) },
+      { name: "./attachments/v1/objects/ab/cd", data: Buffer.from("blob") }
+    ], dotted);
+    assert.equal(await exists(join(dotted, "manifest.json")), true, "./ prefix tolerated");
+    assert.equal(await exists(join(dotted, "attachments", "v1", "objects", "ab", "cd")), true);
+    console.log("archive member safety: OK");
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
 }
 
 console.log("ARCHIVE ROUND-TRIP TESTS PASSED");
