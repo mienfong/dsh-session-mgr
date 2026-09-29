@@ -4,6 +4,26 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.6] - 2026-09-29
+
+### 中文
+
+#### 修复
+- **汇入压缩档时不再可能写到解压目录之外（zip-slip / tar-slip，CWE-22）。** `extractMembersToDir()` 现在会在任何版面处理之前先校验每一个成员名称：反斜线一律视为分隔符，绝对路径、磁盘机或 UNC 前缀、`..` 片段与内嵌 NUL 全部拒绝；空片段与 `.` 片段则正规化移除（`tar czf … .` 产生的 `./<name>` 仍可正常汇入，因为 `.` 无法逃逸）。只要有一个名称不安全，**整个包会被拒绝**（错误码 `unsafe-archive-member`）并且**不写入任何文件** —— 因此既不会逃逸到解压目录之外，也不会留下半汇入的残缺档案；`resolve` + `relative` 的容纳复查保留为第二道防线。感谢 [@kaschey9](https://github.com/kaschey9) 回报（[#1](https://github.com/mienfong/dsh-session-mgr/issues/1)）。
+- **深色主题下主要按钮的文字不再看不见。** `.dsm-btn-primary` 不再写死白色文字，改用主题配对的 `--dsw-alias-label-primary-foreground`（深色主题下翻转为近黑，浅色主题为白），底色与 hover 改用设计系统自己的 `--dsw-alias-button-primary-fill` / `-hover`（原本 hover 那条同样写死了 `#fff`）；disabled 状态不再用 `opacity` 把整个按钮连文字一起淡化，改为只把底色换成中性的 `--dsw-alias-bg-layer-3`、文字用 `--dsw-alias-label-tertiary`，两个主题下都保持可读。感谢 [@kaschey9](https://github.com/kaschey9) 回报（[#2](https://github.com/mienfong/dsh-session-mgr/issues/2)）。
+
+#### 已验证
+- 已对 DeepSeek Harness **0.2.0-rc.2**（会话格式版本 **4**、事件词表 59 种）完成实机验证：会话列表、移动（含「目标目录不存在时以 `target-invalid` 拒绝」）、归档/恢复、v4 会话的可携式备份、汇入、删除全部与文件所述一致。新增的 `scripts/test-session-ops-live.mjs` 会在合成的 v4 会话上跑完整轮，同时也是本插件所依赖的工作区注册表接缝的升级相容性检查。
+
+### English
+
+#### Fixed
+- **Importing an archive can no longer write outside the extraction directory (zip-slip / tar-slip, CWE-22).** `extractMembersToDir()` now validates every member name before any layout handling: backslashes are treated as separators, and absolute names, drive or UNC prefixes, `..` segments and an embedded NUL are all refused, while empty and `.` segments are normalised away (`./<name>` members — what `tar czf … .` produces — still import, since `.` cannot escape). A single unsafe name refuses the **whole package** (error code `unsafe-archive-member`) and **writes nothing at all** — so nothing escapes the extraction directory and no half-imported file is left behind; the `resolve` + `relative` containment check remains as a second line of defence. Thanks to [@kaschey9](https://github.com/kaschey9) for the report ([#1](https://github.com/mienfong/dsh-session-mgr/issues/1)).
+- **Primary button labels are no longer invisible in the dark theme.** `.dsm-btn-primary` no longer hard-codes white text: it uses the theme's paired `--dsw-alias-label-primary-foreground` (near-black in the dark theme, white in the light one), and its fill and hover now use the design system's own `--dsw-alias-button-primary-fill` / `-hover` tokens (the hover rule hard-coded `#fff` as well). Disabled no longer dims the entire button — label included — through `opacity`; it swaps the fill for the neutral `--dsw-alias-bg-layer-3` and the label for `--dsw-alias-label-tertiary`, which stays readable in both themes. Thanks to [@kaschey9](https://github.com/kaschey9) for the report ([#2](https://github.com/mienfong/dsh-session-mgr/issues/2)).
+
+#### Verified
+- Verified live against DeepSeek Harness **0.2.0-rc.2** (session format version **4**, event vocabulary of 59 types): session list, move (including a destination that does not exist being refused with `target-invalid`), archive/unarchive, portable backup of a v4 session, import, and delete all behave as documented. The new `scripts/test-session-ops-live.mjs` runs that round trip on a synthetic v4 session and doubles as the compatibility check for the workspace-registry seam this plugin drives.
+
 ## [0.6.5] - 2026-09-22
 
 ### 中文

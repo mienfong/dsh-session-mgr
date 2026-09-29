@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.5-blueviolet)
+[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.6-blueviolet)
 
 ---
 
@@ -150,6 +150,18 @@ node scripts/test-real.mjs   # tests against a COPY of a real session
 ```sh
 node scripts/test-real.mjs "C:\path\to\<session-id>\"
 ```
+
+The live tests need a running `dsh web` (default `http://127.0.0.1:3080/dsh-session-mgr`). They create throw-away sessions under `DSH_HOME` and clean up after themselves:
+
+```sh
+node scripts/test-session-ops-live.mjs         # move / archive / unarchive / backup / delete
+node scripts/test-import-live.mjs              # import: container + generation normalisation, attachments
+node scripts/test-import-rollback.mjs          # a failed import must roll back and strand nothing
+node scripts/test-import-security-live.mjs     # a crafted archive (zip-slip) must be refused
+node scripts/test-import-compat-live.mjs       # a newer harness' unknown events gain the ignorable marker
+```
+
+After a DSH upgrade (the session format version can change) running this set is the compatibility check.
 
 ## Contributing
 

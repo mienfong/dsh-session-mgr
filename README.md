@@ -4,7 +4,7 @@
 
 在设置页直接对「会话」与「已归档会话」进行移动、归档、恢复、备份与删除，并可跨工作区操作。
 
-[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.5-blueviolet)
+[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.6-blueviolet)
 
 ---
 
@@ -152,6 +152,18 @@ node scripts/test-real.mjs   # 用真实存档的「副本」测试
 ```sh
 node scripts/test-real.mjs "C:\path\to\<session-id>\"
 ```
+
+实机测试需要一个运行中的 `dsh web`（默认 `http://127.0.0.1:3080/dsh-session-mgr`）。它们会在 `DSH_HOME` 下建立临时会话并在结束时清理：
+
+```sh
+node scripts/test-session-ops-live.mjs         # 移动 / 归档 / 恢复 / 备份 / 删除 整轮
+node scripts/test-import-live.mjs              # 汇入：容器与世代正规化、附件还原
+node scripts/test-import-rollback.mjs          # 汇入失败必须回滚、不留目录
+node scripts/test-import-security-live.mjs     # 恶意压缩档（zip-slip）必须被拒
+node scripts/test-import-compat-live.mjs       # 跨版本未知事件补上 ignorable 标记
+```
+
+DSH 升级后（会话格式版本可能变动），跑这一组即可确认本插件仍然相容。
 
 ## 贡献
 

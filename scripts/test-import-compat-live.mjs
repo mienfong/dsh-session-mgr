@@ -26,7 +26,10 @@ import { attachmentStoreRoot, encodeSegment, makeZip, projectKey, scanZstdFrames
 const baseUrl = (process.argv[2] ?? "http://127.0.0.1:3080/dsh-session-mgr").replace(/\/+$/, "");
 const dshHome = process.argv[3] ? resolve(process.argv[3]) : dirname(dirname(attachmentStoreRoot()));
 const sessionsRoot = join(dshHome, "sessions");
-const UNKNOWN_TYPE = "workspace/changes";
+// A synthetic type: which *real* types are unknown changes with every harness
+// release (e.g. `workspace/changes` became known in a later build), so this test
+// must not hard-code one. This name can never appear in a harness vocabulary.
+const UNKNOWN_TYPE = `dsh-session-mgr/synthetic-unknown-${randomUUID().slice(0, 8)}`;
 
 const results = [];
 function check(name, ok, detail) {
