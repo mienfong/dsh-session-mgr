@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile, stat, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { constants, zstdCompressSync } from "node:zlib";
+import { constants, crc32 as nativeCrc32, zstdCompressSync } from "node:zlib";
 import { writeFile } from "node:fs/promises";
 import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath, missingAttachmentIds, looksPrecompressed, shouldDeflate } from "../lib/host.js";
 
@@ -181,6 +181,13 @@ assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
   const sampled = makeZip([{ name: "objects/ab/cdef", data: incompressible }]);
   assert.equal(Buffer.compare(readZip(sampled)[0].data, incompressible), 0, "stored by sampling, byte for byte");
   assert.ok(sampled.length < incompressible.length + 512, "a stored 512 KB member does not grow the archive");
+
+  // The checksum must stay the standard CRC-32 whichever implementation runs:
+  // a native zlib.crc32 on newer Node, the table loop on older runtimes.
+  for (const payload of [Buffer.from(""), Buffer.from("a"), text, incompressible]) {
+    const crc = makeZip([{ name: "x", data: payload }]).readUInt32LE(14);
+    assert.equal(crc, nativeCrc32(payload) >>> 0, `CRC-32 matches zlib for a ${payload.length}-byte member`);
+  }
   console.log("precompressed store path: OK");
 }
 

@@ -14,7 +14,7 @@ import { constants, zstdCompressSync } from "node:zlib";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions, selectStaleTitleIds, pruneTitleCache } from "../lib/host.js";
+import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions, selectStaleTitleIds, pruneTitleCache, applyTitleResults } from "../lib/host.js";
 
 const CHECKSUM = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 const exists = (path) => stat(path).then(() => true, () => false);
@@ -300,6 +300,38 @@ console.log("\nselectStaleTitleIds / pruneTitleCache");
     assert.equal(pruneTitleCache(cache, new Set(["a"])), 1);
     assert.equal(cache.has("b"), false);
     assert.equal(cache.has("a"), true);
+  });
+}
+
+console.log("\napplyTitleResults");
+{
+  const revisions = new Map([["a", 1], ["b", 2], ["c", 3]]);
+  const titles = new Map();
+  const cache = new Map();
+  applyTitleResults([
+    { sessionId: "a", status: "fulfilled", value: { title: { title: "Alpha" } } },
+    { sessionId: "b", status: "rejected", reason: new Error("transient") },
+    { sessionId: "c", status: "fulfilled", value: {} },
+    null,
+    { status: "fulfilled" }
+  ], revisions, titles, cache);
+
+  check("serves a fulfilled title", () => assert.equal(titles.get("a"), "Alpha"));
+  check("does not cache a rejected lookup, so it is retried", () => {
+    assert.equal(cache.has("b"), false, "a transient failure must not hide the title forever");
+  });
+  check("caches a fulfilled lookup that genuinely has no title", () => {
+    assert.equal(cache.get("c").title, "", "no title event is a real answer");
+    assert.equal(cache.get("c").revision, 3, "cached against the revision it was read at");
+  });
+  check("ignores malformed results", () => {
+    assert.equal(cache.size, 2, "only the two fulfilled results are remembered");
+  });
+  check("serves a cached title on the next listing without asking again", () => {
+    const again = new Map();
+    applyTitleResults([], revisions, again, cache);
+    assert.equal(again.size, 0, "nothing new to serve");
+    assert.equal(selectStaleTitleIds([{ id: "c", revision: 3 }], cache).length, 0, "c is not stale");
   });
 }
 } finally {
