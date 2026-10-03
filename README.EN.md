@@ -180,6 +180,12 @@ Thanks to everyone who made this plugin better:
 
 Reporting a bug, asking a question or sending a PR all count — see [Contributing](#contributing) above.
 
+## Known limits
+
+- **Packaging happens in memory.** The ZIP and tar.gz writers/readers are dependency-free pure JS, so the whole archive (attachments included) is held in memory; a 20 MB attachment measured ~0.2–0.25 s to back up and ~0.2 s to import, but an attachment of a few hundred MB costs a multiple of its size in memory. (Content that cannot be compressed no longer pays for deflate either: a 20 MB random attachment went from 0.84 s to 0.23 s, while compressible content still compresses.)
+- **The session list walks every session on the machine.** `persistence.list()` itself measured ~1.8 ms per session (~20 ms for 11 here, ~0.5 s for 311). **Titles** used to be the expensive part — every real session's log is read and folded, ~60 ms each — and are now cached by the log's revision, so only sessions that changed are queried again: ~0.7 s for the first load of this machine's 11 sessions, then ~25 ms. The plugin's own `unreadable` scan measured as negligible.
+- **`unreadable` covers session directories with no readable header** (a truncated or corrupt log, a missing log, an interrupted import). Other forms of corruption are the harness' own load-time checks.
+
 ## License
 
 [MIT](LICENSE)
