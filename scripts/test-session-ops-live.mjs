@@ -11,7 +11,7 @@
 // Usage: node scripts/test-session-ops-live.mjs [baseUrl] [dshHome]
 //   baseUrl default http://127.0.0.1:3080/dsh-session-mgr
 //   dshHome default: derived from the plugin's own attachmentStoreRoot()
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { constants, zstdCompressSync } from "node:zlib";
 import { tmpdir } from "node:os";
@@ -180,6 +180,107 @@ try {
   const legacyDeleted = await post("/delete", { sessionId: legacyId });
   check("delete returns ok for the legacy session", legacyDeleted.status === 200 && legacyDeleted.json.deleted === true, `status=${legacyDeleted.status}`);
   check("the projection-cache document was reclaimed", !(await exists(cacheFile)), cacheFile);
+
+  // --- restoring a session that is not archived must be a no-op, not an error
+  //     (a second click or two clients racing must not surface a failure)
+  const againUnarchive = await post("/unarchive", { sessionId: legacyId });
+  check(
+    "unarchiving a session that is not archived is a no-op",
+    againUnarchive.status === 200 && againUnarchive.json.changed === false && againUnarchive.json.archived === false,
+    `status=${againUnarchive.status} body=${JSON.stringify(againUnarchive.json).slice(0, 120)}`
+  );
+
+  // --- an archived session must come back archived: losing the state silently
+  //     drops an archived conversation back into the active list
+  const archivedId = `session-${randomUUID()}`;
+  const archivedDir = join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(archivedId));
+  const archivedCreatedAt = Date.now();
+  await mkdir(archivedDir, { recursive: true });
+  await writeFile(join(archivedDir, logName), Buffer.concat([
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "session", version: 4, id: archivedId, createdAt: archivedCreatedAt, cwd: resolve(wsA),
+      isSeeded: false, delegationDepth: 0
+    }) + "\n"), CHECKSUM),
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "turn/start", seq: 0, time: archivedCreatedAt, data: { turn: 1 }
+    }) + "\n"), CHECKSUM)
+  ]));
+  await post("/archive", { sessionId: archivedId });
+  const archivedBackup = await post("/backup", { sessionId: archivedId, targetDir: join(backupDir, "archived"), format: "zip" });
+  check("backup reports the archived state", archivedBackup.json.archived === true, String(archivedBackup.json.archived));
+  check("the manifest records the archived state", archivedBackup.json.manifest?.archived === true, String(archivedBackup.json.manifest?.archived));
+  await post("/delete", { sessionId: archivedId });
+  const archivedImport = await post("/import", { sourcePath: archivedBackup.json.backupPath, targetPath: wsA });
+  check(
+    "import reports the restored archived state",
+    archivedImport.status === 200 && archivedImport.json.archived === true,
+    `status=${archivedImport.status} archived=${archivedImport.json.archived}`
+  );
+  const archivedList = await post("/list", {});
+  check(
+    "the session is archived again after the import",
+    Array.isArray(archivedList.json.archivedSessionIds) && archivedList.json.archivedSessionIds.includes(archivedId)
+  );
+
+  // --- a log referencing an attachment this machine no longer has must say so at
+  //     backup time (the restored session would fail on its first send)
+  const ghostId = `session-${randomUUID()}`;
+  const ghostDir = join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(ghostId));
+  const ghostHex = createHash("sha256").update(`ghost-${ghostId}`).digest("hex");
+  const ghostCreatedAt = Date.now();
+  await mkdir(ghostDir, { recursive: true });
+  await writeFile(join(ghostDir, logName), Buffer.concat([
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "session", version: 4, id: ghostId, createdAt: ghostCreatedAt, cwd: resolve(wsA),
+      isSeeded: false, delegationDepth: 0
+    }) + "\n"), CHECKSUM),
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "user/message", seq: 0, time: ghostCreatedAt,
+      data: { images: [{ attachmentId: `sha256:${ghostHex}` }] }
+    }) + "\n"), CHECKSUM)
+  ]));
+  const ghostBackup = await post("/backup", { sessionId: ghostId, targetDir: join(backupDir, "ghost"), format: "zip" });
+  const ghostMissing = ghostBackup.json.missingAttachments ?? [];
+  check(
+    "backup reports the attachment it cannot carry",
+    ghostMissing.length === 1 && ghostMissing[0] === `sha256:${ghostHex}`,
+    JSON.stringify(ghostMissing)
+  );
+  check("the manifest carries the same warning", JSON.stringify(ghostBackup.json.manifest?.missingAttachments) === JSON.stringify(ghostMissing));
+  await post("/delete", { sessionId: ghostId }).catch(() => {});
+
+  // --- a session whose log cannot be read is invisible to every listing, so it
+  //     must at least be surfaced and removable
+  const brokenId = `session-${randomUUID()}`;
+  const brokenDir = join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(brokenId));
+  const brokenCreatedAt = Date.now();
+  await mkdir(brokenDir, { recursive: true });
+  const wholeFrame = zstdCompressSync(Buffer.from(JSON.stringify({
+    type: "session", version: 4, id: brokenId, createdAt: brokenCreatedAt, cwd: resolve(wsA),
+    isSeeded: false, delegationDepth: 0
+  }) + "\n"), CHECKSUM);
+  await writeFile(join(brokenDir, logName), wholeFrame.subarray(0, Math.floor(wholeFrame.length / 2)));
+  const brokenList = await post("/list", {});
+  const reported = (brokenList.json.unreadable ?? []).find((entry) => entry.id === brokenId);
+  check(
+    "an unreadable session is reported by /list",
+    brokenList.status === 200 && reported !== undefined && reported.path === brokenDir,
+    `status=${brokenList.status} unreadable=${JSON.stringify(brokenList.json.unreadable ?? []).slice(0, 160)}`
+  );
+  check("it is not part of the readable session list", !(brokenList.json.sessions ?? []).some((s) => s.id === brokenId));
+  const brokenDelete = await post("/delete", { sessionId: brokenId });
+  check(
+    "an unreadable session can still be deleted",
+    brokenDelete.status === 200 && brokenDelete.json.deleted === true,
+    `status=${brokenDelete.status} body=${JSON.stringify(brokenDelete.json).slice(0, 140)}`
+  );
+  check("its directory is gone", !(await exists(brokenDir)));
+  const afterBroken = await post("/list", {});
+  check(
+    "it is no longer reported as unreadable",
+    !(afterBroken.json.unreadable ?? []).some((entry) => entry.id === brokenId),
+    `status=${afterBroken.status}`
+  );
 } finally {
   await rm(cacheFile, { force: true });
   await rm(join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(legacyId)), { recursive: true, force: true });

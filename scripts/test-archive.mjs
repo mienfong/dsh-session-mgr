@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { constants, zstdCompressSync } from "node:zlib";
 import { writeFile } from "node:fs/promises";
-import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath } from "../lib/host.js";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath, missingAttachmentIds } from "../lib/host.js";
 
 // collectAttachmentIds: finds sha256:<hex> refs in a plaintext log and across zstd frames.
 {
@@ -123,6 +123,21 @@ assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+// attachments a log references but the package cannot carry must be reported:
+// the restored session would otherwise fail on its first send.
+{
+  const a = `sha256:${"a".repeat(64)}`;
+  const b = `sha256:${"b".repeat(64)}`;
+  const c = `sha256:${"c".repeat(64)}`;
+  assert.deepEqual(missingAttachmentIds([a, b], [a]), [b], "the unreferenced-in-package id is missing");
+  assert.deepEqual(missingAttachmentIds([a, a, b], [b]), [a], "de-duplicated and order preserving");
+  assert.deepEqual(missingAttachmentIds([a], [a, b]), [], "nothing missing");
+  assert.deepEqual(missingAttachmentIds([], [a]), [], "no references");
+  assert.deepEqual(missingAttachmentIds([a, b, c], []), [a, b, c], "a package carrying nothing reports every reference");
+  assert.deepEqual(missingAttachmentIds(undefined, undefined), [], "tolerates absent input");
+  console.log("missing attachment reporting: OK");
 }
 
 // log encoding: a package's log container must match the LOCAL backend. DSH's JSONL

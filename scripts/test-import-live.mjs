@@ -152,6 +152,8 @@ try {
   }
   await rm(storeFile, { force: true });
   await rm(work, { recursive: true, force: true });
+  // the import created the project folder that anchors the throw-away workspace
+  await rm(join(sessionsRoot, projectKey(resolve(targetDir))), { recursive: true, force: true });
   const storeClean = !(await stat(storeFile).then(() => true, () => false));
   check("temp store object removed", storeClean);
   const afterDelete = await post("/list", {}).catch(() => ({ status: 0, json: {} }));

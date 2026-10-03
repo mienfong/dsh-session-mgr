@@ -14,7 +14,7 @@ import { constants, zstdCompressSync } from "node:zlib";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord } from "../lib/host.js";
+import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions } from "../lib/host.js";
 
 const CHECKSUM = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 const exists = (path) => stat(path).then(() => true, () => false);
@@ -212,6 +212,59 @@ try {
     if (previousHome === undefined) delete process.env.DSH_HOME;
     else process.env.DSH_HOME = previousHome;
   }
+
+console.log("\ndecodeSegment / findUnreadableSessions");
+check("decodes every segment encodeSegment produces", () => {
+  for (const raw of ["session-abc-123", ".", "..", "a~b", "有中文", "a b", "x~002E", "C:\\path"]) {
+    assert.equal(decodeSegment(encodeSegment(raw)), raw, `round trip: ${raw}`);
+  }
+});
+check("rejects names that are not a valid encoding", () => {
+  assert.equal(decodeSegment("a~b"), undefined, "a bare ~ is not an escape");
+  assert.equal(decodeSegment("a~ZZZZ"), undefined, "non-hex escape");
+  assert.equal(decodeSegment(""), undefined);
+  assert.equal(decodeSegment(undefined), undefined);
+});
+
+{
+  const home = join(work, "scan-home");
+  const previousHome = process.env.DSH_HOME;
+  process.env.DSH_HOME = home;
+  try {
+    const projectDir = join(home, "sessions", "--C-project--");
+    const knownId = "session-known-0001";
+    const brokenId = "session-broken-0002";
+    await mkdir(join(projectDir, encodeSegment(knownId)), { recursive: true });
+    await mkdir(join(projectDir, encodeSegment(brokenId)), { recursive: true });
+    await mkdir(join(projectDir, "not-an-encoded-name~ZZ"), { recursive: true });
+    await writeFile(join(projectDir, "stray-file"), "x");
+
+    await checkAsync("reports only the directories the backend did not account for", async () => {
+      const found = await findUnreadableSessions(new Set([knownId]));
+      const ids = found.map((entry) => entry.id);
+      assert.deepEqual(ids.includes(brokenId), true, "the unreadable session is reported");
+      assert.deepEqual(ids.includes(knownId), false, "a readable session is not reported");
+      assert.equal(found.length, 2, `expected the broken session and the undecodable folder, got ${JSON.stringify(found)}`);
+      const undecodable = found.find((entry) => entry.id === null);
+      assert.equal(undecodable.dir, "not-an-encoded-name~ZZ", "an undecodable folder is still surfaced");
+      assert.ok(found.every((entry) => typeof entry.path === "string" && entry.path.length > 0), "every entry carries a path");
+    });
+
+    await checkAsync("is empty when everything on disk is accounted for", async () => {
+      const found = await findUnreadableSessions(new Set([knownId, brokenId, "not-an-encoded-name~ZZ"]));
+      const undecodable = found.filter((entry) => entry.id === null);
+      assert.equal(found.length, undecodable.length, "only the undecodable folder can remain");
+    });
+
+    await checkAsync("returns nothing when the sessions root does not exist", async () => {
+      process.env.DSH_HOME = join(work, "no-such-home");
+      assert.deepEqual(await findUnreadableSessions(new Set()), []);
+    });
+  } finally {
+    if (previousHome === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = previousHome;
+  }
+}
 } finally {
   await rm(work, { recursive: true, force: true });
 }
