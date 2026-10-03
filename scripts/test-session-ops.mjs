@@ -14,7 +14,7 @@ import { constants, zstdCompressSync } from "node:zlib";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions } from "../lib/host.js";
+import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions, selectStaleTitleIds, pruneTitleCache } from "../lib/host.js";
 
 const CHECKSUM = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 const exists = (path) => stat(path).then(() => true, () => false);
@@ -88,6 +88,18 @@ try {
     await writeFile(join(dir, "session.v3.jsonl.zstd"), frame(logLine));
     const zstdLocated = await resolveExistingLogPath(fakePersistence(join(dir, "session.v4.jsonl.zstd")), { id: "s" });
     assert.equal(zstdLocated.path, join(dir, "session.v3.jsonl.zstd"), "zstd was asked for and a zstd log exists");
+  });
+
+  await checkAsync("picks the newest generation even when the locator points at an older one", async () => {
+    // A registry header can lag a lazy migration: locate() then names the legacy
+    // generation that still exists while a newer one is already on disk. The
+    // newest is what the harness reads, so it must win.
+    const dir = join(work, "stale-locator");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "session.v3.jsonl.zstd"), frame(logLine));
+    await writeFile(join(dir, "session.v4.jsonl.zstd"), frame(logLine));
+    const resolved = await resolveExistingLogPath(fakePersistence(join(dir, "session.v3.jsonl.zstd")), { id: "s" });
+    assert.equal(resolved.path, join(dir, "session.v4.jsonl.zstd"));
   });
 
   await checkAsync("falls back to the other encoding rather than refusing", async () => {
@@ -264,6 +276,31 @@ check("rejects names that are not a valid encoding", () => {
     if (previousHome === undefined) delete process.env.DSH_HOME;
     else process.env.DSH_HOME = previousHome;
   }
+}
+console.log("\nselectStaleTitleIds / pruneTitleCache");
+{
+  const cache = new Map();
+  check("asks for every title on a cold cache", () => {
+    assert.deepEqual(selectStaleTitleIds([{ id: "a", revision: 1 }, { id: "b", revision: 2 }], cache), ["a", "b"]);
+  });
+  check("asks again only for a session whose revision moved", () => {
+    cache.set("a", { revision: 1, title: "A" });
+    cache.set("b", { revision: 2, title: "B" });
+    assert.deepEqual(selectStaleTitleIds([{ id: "a", revision: 1 }, { id: "b", revision: 2 }], cache), [], "nothing moved");
+    assert.deepEqual(selectStaleTitleIds([{ id: "a", revision: 1 }, { id: "b", revision: 3 }], cache), ["b"]);
+    assert.deepEqual(selectStaleTitleIds([{ id: "a", revision: 1 }, { id: "c", revision: 9 }], cache), ["c"], "a new session is stale");
+  });
+  check("asks every time when the backend exposes no revision", () => {
+    assert.deepEqual(selectStaleTitleIds([{ id: "a" }], cache), ["a"], "an older DSH cannot detect a change");
+  });
+  check("ignores entries without an id", () => {
+    assert.deepEqual(selectStaleTitleIds([{ revision: 1 }, { id: "", revision: 1 }], cache), []);
+  });
+  check("prunes entries for sessions that are gone", () => {
+    assert.equal(pruneTitleCache(cache, new Set(["a"])), 1);
+    assert.equal(cache.has("b"), false);
+    assert.equal(cache.has("a"), true);
+  });
 }
 } finally {
   await rm(work, { recursive: true, force: true });

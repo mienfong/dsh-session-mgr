@@ -2,12 +2,13 @@
 // headerOf() (new/old DSH list() shape), and extractMembersToDir (handles
 // Windows "Compressed Folder" wrapped archives, skipping dir entries).
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile, stat, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { constants, zstdCompressSync } from "node:zlib";
 import { writeFile } from "node:fs/promises";
-import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath, missingAttachmentIds } from "../lib/host.js";
+import { makeZip, readZip, makeTarGz, readTarGz, headerOf, extractMembersToDir, readLogHeader, collectAttachmentIds, attachmentStoreRoot, attachmentRelativePaths, restoreAttachments, scanZstdFrames, logEncodingOf, reencodeLogName, sessionLogName, convertLogEncoding, safeArchivePath, missingAttachmentIds, looksPrecompressed, shouldDeflate } from "../lib/host.js";
 
 // collectAttachmentIds: finds sha256:<hex> refs in a plaintext log and across zstd frames.
 {
@@ -138,6 +139,49 @@ assert.ok(tback.some((m) => m.name === "artifacts/note.txt"));
   assert.deepEqual(missingAttachmentIds([a, b, c], []), [a, b, c], "a package carrying nothing reports every reference");
   assert.deepEqual(missingAttachmentIds(undefined, undefined), [], "tolerates absent input");
   console.log("missing attachment reporting: OK");
+}
+
+// already-compressed content must skip deflate (it costs CPU and cannot shrink)
+{
+  const zstdish = Buffer.concat([Buffer.from([0x28, 0xb5, 0x2f, 0xfd]), Buffer.from("payload".repeat(400))]);
+  const pngish = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("x".repeat(2048))]);
+  const text = Buffer.from(JSON.stringify({ type: "session", id: "abc" }).repeat(200));
+  assert.equal(looksPrecompressed("session.v4.jsonl.zstd", text), true, "the zstd log name alone is enough");
+  assert.equal(looksPrecompressed("objects/ab/cdef", zstdish), true, "a content-addressed blob is sniffed by magic bytes");
+  assert.equal(looksPrecompressed("objects/ab/cdef", pngish), true, "PNG magic bytes");
+  assert.equal(looksPrecompressed("manifest.json", text), false, "JSON is worth deflating");
+  assert.equal(looksPrecompressed("session.v4.jsonl", text), false, "a plaintext log is worth deflating");
+  assert.equal(looksPrecompressed("objects/ab/cdef", Buffer.from("unknown bytes here")), false, "unknown content is deflated");
+  assert.equal(looksPrecompressed("objects/ab/cdef", Buffer.alloc(2)), false, "too short to sniff");
+
+  const members = [
+    { name: "manifest.json", data: text },
+    { name: "session.v4.jsonl.zstd", data: zstdish },
+    { name: "objects/ab/cdef", data: pngish }
+  ];
+  const archive = makeZip(members);
+  const back = readZip(archive);
+  assert.equal(back.length, members.length, "every member survives");
+  for (const member of members) {
+    const restored = back.find((entry) => entry.name === member.name);
+    assert.ok(restored !== undefined, `${member.name} is present`);
+    assert.equal(Buffer.compare(restored.data, member.data), 0, `${member.name} round trips byte for byte`);
+  }
+  // the stored members must not be re-deflated: a compressible payload keeps
+  // method 8, an incompressible one is stored (method 0)
+  const storedBigger = archive.length >= zstdish.length + pngish.length;
+  assert.equal(storedBigger, true, "stored members are carried verbatim");
+
+  // Content with no recognizable magic bytes is decided by sampling: deflating
+  // incompressible data costs ~25 ms per MB and cannot shrink it.
+  const incompressible = randomBytes(512 * 1024);
+  assert.equal(shouldDeflate("objects/ab/cdef", incompressible), false, "a sample that does not compress means store");
+  assert.equal(shouldDeflate("session.v4.jsonl", text), true, "compressible content is still deflated");
+  assert.equal(shouldDeflate("manifest.json", Buffer.from("{}")), true, "small members are always deflated");
+  const sampled = makeZip([{ name: "objects/ab/cdef", data: incompressible }]);
+  assert.equal(Buffer.compare(readZip(sampled)[0].data, incompressible), 0, "stored by sampling, byte for byte");
+  assert.ok(sampled.length < incompressible.length + 512, "a stored 512 KB member does not grow the archive");
+  console.log("precompressed store path: OK");
 }
 
 // log encoding: a package's log container must match the LOCAL backend. DSH's JSONL
