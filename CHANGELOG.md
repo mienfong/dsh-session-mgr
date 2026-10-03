@@ -4,6 +4,30 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.7] - 2026-10-04
+
+### 中文
+
+#### 修复
+- **升级后「还没打开过」的会话，不再被误判为档案遗失。** `persistence.locate()` 只计算**当前**格式世代（例如 `session.v4.jsonl.zstd`）的路径、**不查硬盘**，而世代迁移是**惰性**的 —— 那个文件要等到会话下次被打开才产生。于是在旧版 harness 写过、升级后尚未打开过的会话，做**备份**或**移动**都会失败（`backup-verify-failed` / `artifact-missing`），尽管会话本身完全健康（回报者的机器上 31 个会话里有 20 个是这种状态）。现在 `locate` 的结果会回到硬盘复查：不存在就回退到目录中**最新实际存在的**世代（优先同一种容器），只有整个目录都没有正规日志时才报 `artifact-missing`。感谢 [@kaschey9](https://github.com/kaschey9) 回报（[#4](https://github.com/mienfong/dsh-session-mgr/issues/4)）。
+- **移动之后，侧边栏不再丢掉会话标题。** projection-cache 的每条记录都绑定一个**包含 `cwd`** 的生命周期身份，而移动只改写了日志 header 的 `cwd`，记录随即不再匹配，列表会退化成「Untitled」直到会话被重新打开。现在移动成功后会重新绑定该记录的 `cwd`（仅 unseeded 会话；seeded fork 的继承切点不在 header 里，按设计跳过），失败或记录不存在只是下次打开时多回放一段，不会出现错误值。感谢 [@kaschey9](https://github.com/kaschey9) 回报（[#5](https://github.com/mienfong/dsh-session-mgr/issues/5)）。
+- **删除会话时，一并回收它的 projection-cache 记录。** 快取服务刻意不提供驱逐 API，而 harness 自己从不删除会话目录，所以插件的删除是唯一能回收孤儿记录的地方 —— 否则每轮「备份 → 删除 → 汇入」都会永久留下一个（本机 11 个活会话曾累积 13 个孤儿记录）。现在 `pruneBookkeeping()` 会在两条删除路径上都 best-effort 移除该会话的 per-record 文件（`<DSH_HOME>/storages/session_projcache/sessions/<id>.json`），legacy 单文件布局不动。感谢 [@kaschey9](https://github.com/kaschey9) 回报（[#6](https://github.com/mienfong/dsh-session-mgr/issues/6)）。
+
+#### 变更
+- `package.json` 的 `files` 修正：移除已不存在的 `README.zh-CN.md`，补上 `README.EN.md` 与 `CHANGELOG.md`（此前从 npm/git 安装的副本里没有 changelog）。
+- 新增单元测试 `scripts/test-session-ops.mjs`；`scripts/test-session-ops-live.mjs` 增加「旧世代会话」与「cache 回收」两个情境；README 说明实机测试可把其他位址当第一个参数传入（桌面版 App 的端口不同）。
+
+### English
+
+#### Fixed
+- **A session that has not been opened since an upgrade is no longer mistaken for a missing artifact.** `persistence.locate()` only computes the path of the **current** format generation (e.g. `session.v4.jsonl.zstd`) and never touches the disk, while generation migration is **lazy** — that file appears when the session is next opened. So any session last written by an older harness failed **backup** and **move** (`backup-verify-failed` / `artifact-missing`) while being perfectly healthy (20 of 31 sessions on the reporter's machine were in that state). The located path is now checked against the disk and falls back to the **newest canonical generation actually present** (preferring the same container); `artifact-missing` is kept for a directory with no canonical log at all. Thanks to [@kaschey9](https://github.com/kaschey9) for the report ([#4](https://github.com/mienfong/dsh-session-mgr/issues/4)).
+- **The sidebar no longer loses the session title after a move.** Every projection-cache record is bound to a lifecycle identity that **includes `cwd`**, and a move rewrites only the log header, so the stored record stops matching and the row degrades to "Untitled" until the session is reopened. A successful move now re-keys the record's `cwd` (unseeded sessions only — a seeded fork's inherited cut is not part of a stored header, so it is skipped by design); a missing or refused record only costs a longer tail replay on the next open, never a wrong value. Thanks to [@kaschey9](https://github.com/kaschey9) for the report ([#5](https://github.com/mienfong/dsh-session-mgr/issues/5)).
+- **Deleting a session also reclaims its projection-cache record.** The cache service deliberately exposes no eviction API and the harness itself never deletes a session directory, so the plugin's delete is the only place an orphaned record can be reclaimed — without it every Backup → Delete → Import cycle stranded one permanently (this machine had 13 orphans for 11 living sessions). `pruneBookkeeping()` now removes the session's per-record document (`<DSH_HOME>/storages/session_projcache/sessions/<id>.json`) on both delete paths, best effort; the legacy single-document layout is left alone. Thanks to [@kaschey9](https://github.com/kaschey9) for the report ([#6](https://github.com/mienfong/dsh-session-mgr/issues/6)).
+
+#### Changed
+- `package.json` `files` corrected: the removed `README.zh-CN.md` is gone and `README.EN.md` / `CHANGELOG.md` are shipped (an npm/git install previously carried no changelog).
+- New unit test `scripts/test-session-ops.mjs`; `scripts/test-session-ops-live.mjs` gained a legacy-generation scenario and a cache-reclamation check; the READMEs note that the live tests take a different harness URL as their first argument (the desktop app serves on another port).
+
 ## [0.6.6] - 2026-09-29
 
 ### 中文

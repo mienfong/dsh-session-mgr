@@ -4,7 +4,7 @@
 
 在设置页直接对「会话」与「已归档会话」进行移动、归档、恢复、备份与删除，并可跨工作区操作。
 
-[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.6-blueviolet)
+[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.7-blueviolet)
 
 ---
 
@@ -145,18 +145,19 @@ DSH 的「工作区」本质上是文件夹：会话通过 session header 的 `c
 `lib/host.js` 中的纯函数（路径编码、zstd frame 扫描、header 重写、文件夹搬移）可独立测试：
 
 ```sh
-node scripts/test-move.mjs   # 合成数据测试
-node scripts/test-real.mjs   # 用真实存档的「副本」测试
+node scripts/test-session-ops.mjs    # 会话操作接缝（世代回退、cache 重绑/清理）
+node scripts/test-move.mjs           # 合成数据测试
+node scripts/test-real.mjs           # 用真实存档的「副本」测试
 ```
 `test-real.mjs` 需要传入一个真实会话目录作为参数（或设置 `DSH_REAL_SAMPLE`）：
 ```sh
 node scripts/test-real.mjs "C:\path\to\<session-id>\"
 ```
 
-实机测试需要一个运行中的 `dsh web`（默认 `http://127.0.0.1:3080/dsh-session-mgr`）。它们会在 `DSH_HOME` 下建立临时会话并在结束时清理：
+实机测试需要一个运行中的 harness（预设 `http://127.0.0.1:3080/dsh-session-mgr`；**桌面版 App 的端口不同**，请把它自己的位址当作第一个参数传入，例如 `http://127.0.0.1:19387/dsh-session-mgr`）。它们会在 `DSH_HOME` 下建立临时会话并在结束时清理：
 
 ```sh
-node scripts/test-session-ops-live.mjs         # 移动 / 归档 / 恢复 / 备份 / 删除 整轮
+node scripts/test-session-ops-live.mjs         # 移动 / 归档 / 恢复 / 备份 / 删除 整轮（含旧世代会话与 cache 回收）
 node scripts/test-import-live.mjs              # 汇入：容器与世代正规化、附件还原
 node scripts/test-import-rollback.mjs          # 汇入失败必须回滚、不留目录
 node scripts/test-import-security-live.mjs     # 恶意压缩档（zip-slip）必须被拒

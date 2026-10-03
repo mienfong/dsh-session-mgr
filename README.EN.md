@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.6-blueviolet)
+[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.7-blueviolet)
 
 ---
 
@@ -143,18 +143,19 @@ Archive/unarchive uses the registry-global archive set; an archived session keep
 The pure helpers in `lib/host.js` (path encoding, zstd frame scan, header rewrite, folder move) are unit-testable:
 
 ```sh
-node scripts/test-move.mjs   # synthetic-data tests
-node scripts/test-real.mjs   # tests against a COPY of a real session
+node scripts/test-session-ops.mjs    # session-operation seam (generation fallback, cache re-key/prune)
+node scripts/test-move.mjs           # synthetic-data tests
+node scripts/test-real.mjs           # tests against a COPY of a real session
 ```
 `test-real.mjs` needs a real session dir as its argument (or `DSH_REAL_SAMPLE`):
 ```sh
 node scripts/test-real.mjs "C:\path\to\<session-id>\"
 ```
 
-The live tests need a running `dsh web` (default `http://127.0.0.1:3080/dsh-session-mgr`). They create throw-away sessions under `DSH_HOME` and clean up after themselves:
+The live tests need a running harness (default `http://127.0.0.1:3080/dsh-session-mgr`; the **desktop app serves on a different port**, so pass its own URL as the first argument, e.g. `http://127.0.0.1:19387/dsh-session-mgr`). They create throw-away sessions under `DSH_HOME` and clean up after themselves:
 
 ```sh
-node scripts/test-session-ops-live.mjs         # move / archive / unarchive / backup / delete
+node scripts/test-session-ops-live.mjs         # move / archive / unarchive / backup / delete (incl. a legacy-generation session and cache reclamation)
 node scripts/test-import-live.mjs              # import: container + generation normalisation, attachments
 node scripts/test-import-rollback.mjs          # a failed import must roll back and strand nothing
 node scripts/test-import-security-live.mjs     # a crafted archive (zip-slip) must be refused
