@@ -110,7 +110,7 @@ The host half exposes a small JSON API under `/dsh-session-mgr/*` (all `POST`):
 
 | Endpoint | Request | Response |
 |---|---|---|
-| `/dsh-session-mgr/list` | `{}` | `{ workspaces, sessions, archivedSessionIds, backupDefaultDir }` |
+| `/dsh-session-mgr/list` | `{}` | `{ workspaces, sessions, archivedSessionIds, unreadable, backupDefaultDir }` |
 | `/dsh-session-mgr/move` | `{ sessionId, targetPath }` | `{ ok, sessionId, archived, from, to }` |
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
@@ -143,6 +143,7 @@ Archive/unarchive uses the registry-global archive set; an archived session keep
 The pure helpers in `lib/host.js` (path encoding, zstd frame scan, header rewrite, folder move) are unit-testable:
 
 ```sh
+node scripts/test-i18n.mjs           # trilingual key / error-code parity (mechanical self-check)
 node scripts/test-session-ops.mjs    # session-operation seam (generation fallback, cache re-key/prune)
 node scripts/test-move.mjs           # synthetic-data tests
 node scripts/test-real.mjs           # tests against a COPY of a real session

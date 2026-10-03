@@ -110,7 +110,7 @@ dsh web
 
 | 端点 | 请求 | 响应 |
 |---|---|---|
-| `/dsh-session-mgr/list` | `{}` | `{ workspaces, sessions, archivedSessionIds, backupDefaultDir }` |
+| `/dsh-session-mgr/list` | `{}` | `{ workspaces, sessions, archivedSessionIds, unreadable, backupDefaultDir }` |
 | `/dsh-session-mgr/move` | `{ sessionId, targetPath }` | `{ ok, sessionId, archived, from, to }` |
 | `/dsh-session-mgr/archive` | `{ sessionId }` | `{ ok, archived, sessionId, archivedSessionIds }` |
 | `/dsh-session-mgr/unarchive` | `{ sessionId }` | `{ ok, archived, sessionId, changed, archivedSessionIds }` |
@@ -145,6 +145,7 @@ DSH 的「工作区」本质上是文件夹：会话通过 session header 的 `c
 `lib/host.js` 中的纯函数（路径编码、zstd frame 扫描、header 重写、文件夹搬移）可独立测试：
 
 ```sh
+node scripts/test-i18n.mjs           # 三语键值与错误码一致性（机械式自我检查）
 node scripts/test-session-ops.mjs    # 会话操作接缝（世代回退、cache 重绑/清理）
 node scripts/test-move.mjs           # 合成数据测试
 node scripts/test-real.mjs           # 用真实存档的「副本」测试
