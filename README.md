@@ -178,7 +178,7 @@ DSH 升级后（会话格式版本可能变动），跑这一组即可确认本�
 | 贡献者 | 贡献 |
 | --- | --- |
 | [@ron0115](https://github.com/ron0115) | 跨版本汇入：为较新 DSH 写出的未知事件补上 `ignorable: true`，修好「汇入成功但会话打不开」（[#3](https://github.com/mienfong/dsh-session-mgr/pull/3)） |
-| [@kaschey9](https://github.com/kaschey9) | 安全与界面审查：回报 zip-slip 路径穿越（[#1](https://github.com/mienfong/dsh-session-mgr/issues/1)）与深色主题下按钮文字不可见（[#2](https://github.com/mienfong/dsh-session-mgr/issues/2)） |
+| [@kaschey9](https://github.com/kaschey9) | 安全与界面审查，并回报 5 个真实问题：zip-slip 路径穿越（[#1](https://github.com/mienfong/dsh-session-mgr/issues/1)）、深色主题下按钮文字不可见（[#2](https://github.com/mienfong/dsh-session-mgr/issues/2)）、升级后「还没打开过」的会话被误判为档案遗失（[#4](https://github.com/mienfong/dsh-session-mgr/issues/4)）、移动后侧边栏丢掉会话标题（[#5](https://github.com/mienfong/dsh-session-mgr/issues/5)）、删除会话后遗留孤兒投影快取记录（[#6](https://github.com/mienfong/dsh-session-mgr/issues/6)） |
 
 回报 bug、提出问题或送 PR，都算一份贡献 —— 见上方「贡献」。
 

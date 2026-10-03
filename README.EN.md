@@ -176,7 +176,7 @@ Thanks to everyone who made this plugin better:
 | Contributor | Contribution |
 | --- | --- |
 | [@ron0115](https://github.com/ron0115) | Cross-version import: marks unknown event types written by a newer DSH as `ignorable: true`, fixing "the import succeeds but the conversation will not open" ([#3](https://github.com/mienfong/dsh-session-mgr/pull/3)) |
-| [@kaschey9](https://github.com/kaschey9) | Security and UI review: reported the zip-slip path traversal ([#1](https://github.com/mienfong/dsh-session-mgr/issues/1)) and button labels that are invisible in the dark theme ([#2](https://github.com/mienfong/dsh-session-mgr/issues/2)) |
+| [@kaschey9](https://github.com/kaschey9) | Security and UI review, and five real reports: the zip-slip path traversal ([#1](https://github.com/mienfong/dsh-session-mgr/issues/1)), button labels invisible in the dark theme ([#2](https://github.com/mienfong/dsh-session-mgr/issues/2)), healthy sessions refused as `artifact-missing` when their current log generation was never materialised ([#4](https://github.com/mienfong/dsh-session-mgr/issues/4)), the sidebar losing a session's title after a move ([#5](https://github.com/mienfong/dsh-session-mgr/issues/5)), and orphaned projection-cache documents left behind forever by delete ([#6](https://github.com/mienfong/dsh-session-mgr/issues/6)) |
 
 Reporting a bug, asking a question or sending a PR all count — see [Contributing](#contributing) above.
 
