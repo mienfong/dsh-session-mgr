@@ -54,6 +54,13 @@ const wsB = join(work, "ws-b");
 const backupDir = join(work, "backups");
 const sessionId = `session-${randomUUID()}`;
 const logName = "session.v4.jsonl.zstd";
+// A second session that only ever has an OLD generation on disk: the current
+// generation is materialised lazily, when a session is next opened, so this is
+// what every pre-upgrade session looks like until then.
+const legacyId = `session-${randomUUID()}`;
+const legacyLog = "session.v3.jsonl.zstd";
+const cacheDir = join(dshHome, "storages", "session_projcache", "sessions");
+const cacheFile = join(cacheDir, `${legacyId}.json`);
 const cwdOf = (ws) => resolve(ws).replace(/\\/g, "\\");
 const sessionDir = (ws) => join(sessionsRoot, projectKey(resolve(ws)), encodeSegment(sessionId));
 
@@ -128,7 +135,54 @@ try {
   check("delete returns ok", deleted.status === 200 && deleted.json.deleted === true, `status=${deleted.status} body=${JSON.stringify(deleted.json).slice(0, 140)}`);
   check("artifact directory gone", !(await exists(sessionDir(wsA))));
   check("session no longer listed", afterDelete.session === undefined);
+
+  // --- a session whose CURRENT generation was never materialised must still be
+  //     movable and backup-able (the reported artifact-missing regression)
+  const legacyDirA = join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(legacyId));
+  const legacyCreatedAt = Date.now();
+  await mkdir(legacyDirA, { recursive: true });
+  await writeFile(join(legacyDirA, legacyLog), Buffer.concat([
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "session", version: 3, id: legacyId, createdAt: legacyCreatedAt, cwd: resolve(wsA),
+      isSeeded: false, delegationDepth: 0
+    }) + "\n"), CHECKSUM),
+    zstdCompressSync(Buffer.from(JSON.stringify({
+      type: "turn/start", seq: 0, time: legacyCreatedAt, data: { turn: 1 }
+    }) + "\n"), CHECKSUM)
+  ]));
+  const legacyListed = await listedSession(legacyId);
+  check("a pre-upgrade session (no current generation) is listed", legacyListed.session !== undefined, `status=${legacyListed.list.status}`);
+
+  const legacyBackup = await post("/backup", { sessionId: legacyId, targetDir: join(backupDir, "legacy"), format: "zip" });
+  check(
+    "backup works on a legacy-generation session",
+    legacyBackup.status === 200 && legacyBackup.json.ok === true,
+    `status=${legacyBackup.status} ${JSON.stringify(legacyBackup.json).slice(0, 120)}`
+  );
+  if (legacyBackup.json?.backupPath) {
+    const legacyMembers = readZip(await readFile(legacyBackup.json.backupPath)).map((m) => m.name);
+    check("the archive carries the generation that actually exists", legacyMembers.includes(legacyLog), legacyMembers.join(", "));
+  }
+
+  const legacyMoved = await post("/move", { sessionId: legacyId, targetPath: wsB });
+  check(
+    "move works on a legacy-generation session",
+    legacyMoved.status === 200 && legacyMoved.json.ok === true,
+    `status=${legacyMoved.status} ${JSON.stringify(legacyMoved.json).slice(0, 120)}`
+  );
+  check("the legacy log travelled with the move", await exists(join(sessionsRoot, projectKey(resolve(wsB)), encodeSegment(legacyId), legacyLog)));
+
+  // --- delete must reclaim the session's projection-cache document, which the
+  //     core never removes (it has no eviction API) and would otherwise orphan
+  await mkdir(cacheDir, { recursive: true });
+  await writeFile(cacheFile, JSON.stringify({ identity: { formatVersion: 3, createdAt: legacyCreatedAt, cwd: resolve(wsB) }, rows: {} }));
+  check("a projection-cache document exists to reclaim", await exists(cacheFile));
+  const legacyDeleted = await post("/delete", { sessionId: legacyId });
+  check("delete returns ok for the legacy session", legacyDeleted.status === 200 && legacyDeleted.json.deleted === true, `status=${legacyDeleted.status}`);
+  check("the projection-cache document was reclaimed", !(await exists(cacheFile)), cacheFile);
 } finally {
+  await rm(cacheFile, { force: true });
+  await rm(join(sessionsRoot, projectKey(resolve(wsA)), encodeSegment(legacyId)), { recursive: true, force: true });
   await rm(sessionDir(wsA), { recursive: true, force: true });
   await rm(sessionDir(wsB), { recursive: true, force: true });
   await rm(join(sessionsRoot, projectKey(resolve(wsA))), { recursive: true, force: true });
