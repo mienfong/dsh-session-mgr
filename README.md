@@ -69,12 +69,11 @@
 
 ## 安装
 
-### 方法一：安装到 web profile（推荐）
+### 方法一：从 npm 安装（推荐）
 
 ```sh
-# 1. 克隆/下载本仓库，然后安装到你的 web profile。
-#    把 <path> 换成 dsh-session-mgr 文件夹的绝对路径。
-dsh plugin --profile web add "file:<path>\dsh-session-mgr"
+# 1. 从 npm registry 安装到你的 web profile。
+dsh plugin --profile web add dsh-session-mgr
 
 # 2. 在 web profile 的 package.json 中，把 "dsh-session-mgr" 加入 dsh.profile.bundles
 #    （与其他插件条目并列）。
@@ -83,7 +82,18 @@ dsh plugin --profile web add "file:<path>\dsh-session-mgr"
 dsh web
 ```
 
-### 方法二：手动安装
+也可以用 `npm install dsh-session-mgr`，或指定版本 `dsh-session-mgr@0.6.7`。
+
+### 方法二：从本仓库安装
+
+```sh
+# 克隆/下载本仓库，把 <path> 换成 dsh-session-mgr 文件夹的绝对路径。
+dsh plugin --profile web add "file:<path>\dsh-session-mgr"
+
+# 之后同样把 "dsh-session-mgr" 加入 dsh.profile.bundles，再重启 dsh web。
+```
+
+### 方法三：手动安装
 
 把本包放进 profile 的 `node_modules`（例如 `pnpm add file:...` 或 symlink），
 再把 `"dsh-session-mgr"` 加入 profile `package.json` 的 `dsh.profile.bundles`，然后重启。

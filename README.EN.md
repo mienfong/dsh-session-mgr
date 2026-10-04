@@ -69,12 +69,11 @@ A session belongs to a workspace through its header `cwd` — an absolute path t
 
 ## Installation
 
-### Method 1 — install into the web profile (recommended)
+### Method 1 — from npm (recommended)
 
 ```sh
-# 1. Clone / download this repo, then install it into your web profile.
-#    Replace <path> with the absolute path of the dsh-session-mgr folder.
-dsh plugin --profile web add "file:<path>\dsh-session-mgr"
+# 1. Install it from the npm registry into your web profile.
+dsh plugin --profile web add dsh-session-mgr
 
 # 2. Add the bundle to your web profile's package.json
 #    (the `dsh.profile.bundles` array, alongside the other plugin entries):
@@ -84,7 +83,18 @@ dsh plugin --profile web add "file:<path>\dsh-session-mgr"
 dsh web
 ```
 
-### Method 2 — manual
+`npm install dsh-session-mgr` works too, and `dsh-session-mgr@0.6.7` pins the version.
+
+### Method 2 — from this repository
+
+```sh
+# Clone / download the repo, then replace <path> with the absolute path of the folder.
+dsh plugin --profile web add "file:<path>\dsh-session-mgr"
+
+# Then add "dsh-session-mgr" to dsh.profile.bundles and restart dsh web, as above.
+```
+
+### Method 3 — manual
 
 Put the package into your profile's `node_modules` (e.g. `pnpm add file:...` or a symlink), then add `"dsh-session-mgr"` to the `dsh.profile.bundles` list in the profile's `package.json`, and restart.
 
