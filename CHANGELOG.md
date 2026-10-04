@@ -4,6 +4,28 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.8] - 2026-10-04
+
+### 中文
+
+#### 文档
+- 安装说明改以 **npm 为首选**：`dsh plugin --profile web add dsh-session-mgr`；从本仓库（`file:`）或手动放进 `node_modules` 仍为备选。
+- 贡献指南写明 PR 政策：欢迎直接送 PR，我们会**先审查再决定是否并入 `main`**（以 [@ron0115](https://github.com/ron0115) 的 [#3](https://github.com/mienfong/dsh-session-mgr/pull/3) 为范例）。
+- 贡献者表补上 [@kaschey9](https://github.com/kaschey9) 的 [#4](https://github.com/mienfong/dsh-session-mgr/issues/4) / [#5](https://github.com/mienfong/dsh-session-mgr/issues/5) / [#6](https://github.com/mienfong/dsh-session-mgr/issues/6)（连同 #1 / #2 共 5 张回報）。
+- 精简 0.6.7 的说明文字：只陈述改了什么，不再标注发现途径；深入原理与量测数据保留在对应的 commit 讯息里。
+
+本版**没有代码变更**，只有文件与打包内容。
+
+### English
+
+#### Docs
+- Installation now leads with **npm**: `dsh plugin --profile web add dsh-session-mgr`; installing from a checkout (`file:`) or manually into `node_modules` stays as alternatives.
+- The contributing guide states the pull-request policy: send a PR directly and we review it before deciding whether to merge into `main` (the model is [@ron0115](https://github.com/ron0115)'s [#3](https://github.com/mienfong/dsh-session-mgr/pull/3)).
+- The contributor table now credits [@kaschey9](https://github.com/kaschey9)'s [#4](https://github.com/mienfong/dsh-session-mgr/issues/4), [#5](https://github.com/mienfong/dsh-session-mgr/issues/5) and [#6](https://github.com/mienfong/dsh-session-mgr/issues/6) alongside #1 and #2 — five reports in total.
+- Tightened the 0.6.7 notes: they state what changed without labelling how it was found; the deeper rationale and the measurements stay in the corresponding commit messages.
+
+This release contains **no code changes**, only documentation and package contents.
+
 ## [0.6.7] - 2026-10-04
 
 ### 中文
