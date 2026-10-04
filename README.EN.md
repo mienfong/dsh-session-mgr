@@ -167,7 +167,15 @@ After a DSH upgrade (the session format version can change) running this set is 
 
 ## Contributing
 
-Found a bug or want a feature? Open an [issue](../../issues) or a pull request. Please keep the code style (plain ESM, no build step) and add/run tests for any change to `lib/host.js`.
+Found a bug or want a feature? Open an [issue](../../issues) — and please feel free to send a **pull request** directly. Both are equally valuable: a report on its own is credited in the changelog and the contributor table.
+
+**About pull requests**: we review first and then decide whether to merge into `main` — we do not merge blindly. The way [@ron0115](https://github.com/ron0115) did it in [#3](https://github.com/mienfong/dsh-session-mgr/pull/3) is the model we are happy with:
+
+- a focused branch that changes as little as the fix needs;
+- a short description of the failure and of the reasoning behind the fix;
+- tests where they are meaningful — `scripts/test-*.mjs` are plain `node` scripts (no test framework), and the live ones take the harness URL as their first argument (the desktop app serves on a different port).
+
+Style: plain ESM, no build step, zero runtime dependencies; add and run tests for any change to `lib/host.js`.
 
 ## Contributors
 
