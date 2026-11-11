@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
 import { constants, zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import assert from "node:assert/strict";
-import { encodeSegment, projectKey, scanZstdFrames, rewriteLogHeader, moveSessionFiles } from "../lib/host.js";
+import { encodeSegment, projectKey, scanZstdFrames, rewriteLogHeader, moveSessionFiles, detachLive } from "../lib/host.js";
 
 const CHECKSUM_OPTIONS = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 
@@ -128,6 +128,55 @@ check("plaintext events intact", () => assert.ok(plainText.includes("turn/start"
     threw = true;
   }
   check("collision refusal", () => assert.equal(threw, true));
+}
+
+// --- detachLive: must unregister the agent AND evict the session ---
+// Regression guard for the zombie-Agent bug: detaching the session alone left a
+// live Agent registered under the same id, shadowing every later prompt.
+{
+  const agentEntry = { id, agent: { id } };
+  const sessionEntry = { id, session: { id }, detach() { sessionEntry.detached = true; } };
+  let agentDetached = null;
+  const ctx = {
+    get(name) {
+      if (name === "agents") return { store: new Map([[id, agentEntry]]), detachEntered(entry) { agentDetached = entry; } };
+      if (name === "sessions") return { store: new Map([[id, sessionEntry]]) };
+      return undefined;
+    }
+  };
+  const ok = detachLive(ctx, id);
+  check("detachLive returns true", () => assert.equal(ok, true));
+  check("detachLive unregisters the agent", () => assert.equal(agentDetached, agentEntry));
+  check("detachLive evicts the session", () => assert.equal(sessionEntry.detached, true));
+}
+
+// no live agent (cold session) — session still evicted, no agent call
+{
+  const sessionEntry = { id, session: { id }, detach() { sessionEntry.detached = true; } };
+  let agentCalled = false;
+  const ctx = {
+    get(name) {
+      if (name === "agents") return { store: new Map(), detachEntered() { agentCalled = true; } };
+      if (name === "sessions") return { store: new Map([[id, sessionEntry]]) };
+      return undefined;
+    }
+  };
+  const ok = detachLive(ctx, id);
+  check("detachLive (no agent) evicts session", () => assert.equal(ok, true) && assert.equal(sessionEntry.detached, true));
+  check("detachLive (no agent) does not touch the agent registry", () => assert.equal(agentCalled, false));
+}
+
+// agents service absent entirely — session eviction must still succeed
+{
+  const sessionEntry = { id, session: { id }, detach() { sessionEntry.detached = true; } };
+  const ctx = {
+    get(name) {
+      if (name === "sessions") return { store: new Map([[id, sessionEntry]]) };
+      return undefined;
+    }
+  };
+  const ok = detachLive(ctx, id);
+  check("detachLive (no agents service) evicts session", () => assert.equal(ok, true) && assert.equal(sessionEntry.detached, true));
 }
 
 await rm(root, { recursive: true, force: true });
