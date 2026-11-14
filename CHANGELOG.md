@@ -4,6 +4,26 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.9] - 2026-11-14
+
+### 中文
+
+#### 修复
+- **移动「已打开但闲置」的会话后，它不再变成僵尸。** 以前只把会话从内存的 session store 逐出，它的 Agent 仍留在 agent registry 里，会拿着搬移前的 `cwd` 与旧事件继续「接收」后续提示——提示看似被接受，实际上既不回覆也不写入磁盘。现在会先注销 Agent 再逐出会话，下次打开会从改写后的磁盘 header 重新开始。感谢 [@deathbypain](https://github.com/deathbypain) 回报并修复（[#8](https://github.com/mienfong/dsh-session-mgr/issues/8) / [#7](https://github.com/mienfong/dsh-session-mgr/pull/7)）。
+- **DSH 0.2.2+ 上，会话标题栏的「移动」对话框不再被裁掉。** 0.2.2 起标题栏是自带 clipping 的容器，插件原本的 `position: fixed` 覆盖层被裁掉而看不见；现在改用应用提供的 portaled Modal 渲染。若较旧的 DSH 没有该模组，仍回退到原本的覆盖层（不会因此载入失败）。感谢 [@deathbypain](https://github.com/deathbypain) 回报并修复（[#10](https://github.com/mienfong/dsh-session-mgr/issues/10) / [#9](https://github.com/mienfong/dsh-session-mgr/pull/9)）。
+
+#### 变更
+- 安全说明补充「移动时会一并注销 Agent」；`detachLive` 现在导出并附回归测试（`scripts/test-move.mjs`）。
+
+### English
+
+#### Fixes
+- **A session moved while open-but-idle no longer turns into a zombie.** Previously only the session was evicted from the in-memory session store, while its Agent stayed in the agent registry and kept "accepting" later prompts against its pre-move `cwd` and stale event history — the prompts looked accepted but produced no reply and nothing was persisted. The Agent is now unregistered before the session is evicted, so the next open resumes from the rewritten on-disk header. Reported and fixed by [@deathbypain](https://github.com/deathbypain) ([#8](https://github.com/mienfong/dsh-session-mgr/issues/8) / [#7](https://github.com/mienfong/dsh-session-mgr/pull/7)).
+- **On DSH 0.2.2+ the move dialog in the conversation header is no longer clipped away.** Since 0.2.2 the header is its own clipped container, so the plugin's `position: fixed` overlay was invisible; it now renders through the app's portaled Modal primitive. Harness builds without that module fall back to the plugin's own overlay instead of failing to load. Reported and fixed by [@deathbypain](https://github.com/deathbypain) ([#10](https://github.com/mienfong/dsh-session-mgr/issues/10) / [#9](https://github.com/mienfong/dsh-session-mgr/pull/9)).
+
+#### Changed
+- Safety notes now say the Agent is unregistered on move; `detachLive` is exported and covered by a regression test (`scripts/test-move.mjs`).
+
 ## [0.6.8] - 2026-10-04
 
 ### 中文
