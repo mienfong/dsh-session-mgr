@@ -4,7 +4,7 @@
 
 在设置页直接对「会话」与「已归档会话」进行移动、归档、恢复、备份与删除，并可跨工作区操作。
 
-[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.7-blueviolet)
+[**English**](README.EN.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/npm/v/dsh-session-mgr?label=dsh%20web%20plugin&color=blueviolet)
 
 ---
 
@@ -82,7 +82,7 @@ dsh plugin --profile web add dsh-session-mgr
 dsh web
 ```
 
-也可以用 `npm install dsh-session-mgr`，或指定版本 `dsh-session-mgr@0.6.7`。
+也可以用 `npm install dsh-session-mgr`，或指定版本 `dsh-session-mgr@<version>`。
 
 ### 方法二：从本仓库安装
 

@@ -4,7 +4,7 @@
 
 Move, archive, restore, backup and delete conversations — including archived ones — across workspaces, right from the Settings page.
 
-[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/badge/dsh%20web%20plugin-0.6.7-blueviolet)
+[**中文**](README.md) · [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) · ![dsh](https://img.shields.io/npm/v/dsh-session-mgr?label=dsh%20web%20plugin&color=blueviolet)
 
 ---
 
@@ -83,7 +83,7 @@ dsh plugin --profile web add dsh-session-mgr
 dsh web
 ```
 
-`npm install dsh-session-mgr` works too, and `dsh-session-mgr@0.6.7` pins the version.
+`npm install dsh-session-mgr` works too, and `dsh-session-mgr@<version>` pins a specific one.
 
 ### Method 2 — from this repository
 
