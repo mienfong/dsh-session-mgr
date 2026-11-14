@@ -143,7 +143,7 @@ Archive/unarchive uses the registry-global archive set; an archived session keep
 ## Safety
 
 - **Running** sessions cannot be moved / archived / backed up / deleted (checked via the `agents` service).
-- Idle live sessions are evicted from memory before a move/delete so the next open reads the new header.
+- Idle live sessions are evicted from memory before a move/delete so the next open reads the new header. The session's Agent is also unregistered from the agent registry, so a move never leaves a stale in-memory Agent that would shadow later prompts for that session.
 - Existing files/folders with the same name at the destination are **refused** (no silent overwrite).
 - Cross-volume (EXDEV) moves fall back to copy + delete source.
 - Delete requires a **double confirmation** and is irreversible — a backup is recommended.
