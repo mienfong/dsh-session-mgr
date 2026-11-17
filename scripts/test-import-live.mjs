@@ -160,6 +160,203 @@ try {
   check("list route healthy after cleanup", afterDelete.status === 200, `status=${afterDelete.status}`);
 }
 
+// --- 8. a package whose manifest and log disagree about the session id must be
+//        refused. Installing it would create <encodeSegment(manifestId)> while
+//        DSH locates the session by the header id: a directory no side can reach.
+const tamperWork = await mkdtemp(join(tmpdir(), "dsm-import-mismatch-"));
+try {
+  const tamperTarget = join(tamperWork, "workspace");
+  const manifestId = `session-${randomUUID()}`;
+  const headerId = `session-${randomUUID()}`;
+  const tamperPkg = join(tamperWork, "pkg");
+  await mkdir(tamperPkg, { recursive: true });
+  await mkdir(tamperTarget, { recursive: true });
+  const tamperHeader = JSON.stringify({
+    type: "session", version: 3, id: headerId, createdAt, cwd: fakeCwd,
+    isSeeded: false, delegationDepth: 0, agentPreset: "standard"
+  });
+  await writeFile(join(tamperPkg, "session.v3.jsonl"), `${tamperHeader}\n`);
+  await writeFile(join(tamperPkg, "manifest.json"), JSON.stringify({
+    schema: 1, kind: "dsh-session-export", sessionId: manifestId, version: 3, createdAt,
+    cwd: fakeCwd, delegationDepth: 0, agentPreset: "standard",
+    logName: "session.v3.jsonl", attachments: [], exportedAt: new Date().toISOString()
+  }, null, 2));
+  const tamperArchive = join(tamperWork, "tampered.zip");
+  await writeFile(tamperArchive, makeZip([
+    { name: "manifest.json", data: await readFile(join(tamperPkg, "manifest.json")) },
+    { name: "session.v3.jsonl", data: await readFile(join(tamperPkg, "session.v3.jsonl")) }
+  ]));
+  const tamperRes = await post("/import", { sourcePath: tamperArchive, targetPath: tamperTarget });
+  check(
+    "id-mismatched package is refused",
+    tamperRes.status === 400 && tamperRes.json?.error?.code === "import-session-mismatch",
+    `status=${tamperRes.status} code=${tamperRes.json?.error?.code}`
+  );
+  const tamperProject = join(sessionsRoot, projectKey(resolve(tamperTarget)));
+  const leftovers = await readdir(tamperProject).catch(() => []);
+  check("refused package left no session directory", leftovers.length === 0, leftovers.join(","));
+  const tamperList = await post("/list", {});
+  check("list route healthy after refused import", tamperList.status === 200, `status=${tamperList.status}`);
+  await rm(tamperProject, { recursive: true, force: true });
+} finally {
+  await rm(tamperWork, { recursive: true, force: true });
+}
+
+// --- 9. a hand-made package (a zipped session folder with no manifest) must be
+//        importable when its log uses the generation filename DSH currently
+//        writes (`session.v4.jsonl`), not only the legacy `session.jsonl`.
+const bareWork = await mkdtemp(join(tmpdir(), "dsm-import-bare-"));
+try {
+  const bareTarget = join(bareWork, "workspace");
+  const bareId = `session-${randomUUID()}`;
+  await mkdir(bareTarget, { recursive: true });
+  const barePkg = join(bareWork, "folder");
+  await mkdir(barePkg, { recursive: true });
+  const bareHeader = JSON.stringify({ type: "session", version: 4, id: bareId, createdAt, cwd: fakeCwd, delegationDepth: 0 });
+  await writeFile(join(barePkg, "session.v4.jsonl"), `${bareHeader}\n`);
+  const bareRes = await post("/import", { sourcePath: barePkg, targetPath: bareTarget });
+  check(
+    "hand-zipped session.v4 folder imports",
+    bareRes.status === 200 && bareRes.json?.sessionId === bareId,
+    `status=${bareRes.status} code=${bareRes.json?.error?.code}`
+  );
+  if (bareRes.status === 200) {
+    const del = await post("/delete", { sessionId: bareId });
+    check("bare-log import cleaned up", del.status === 200, `status=${del.status}`);
+  }
+  await rm(join(sessionsRoot, projectKey(resolve(bareTarget))), { recursive: true, force: true });
+} finally {
+  await rm(bareWork, { recursive: true, force: true });
+}
+
+// --- 10. a package whose manifest lists an attachment it does not actually
+//         carry must say so: the session installs, but its first send would fail
+//         with ATTACHMENT_NOT_FOUND, which is invisible from the import result.
+const missingWork = await mkdtemp(join(tmpdir(), "dsm-import-missing-"));
+try {
+  const missingTarget = join(missingWork, "workspace");
+  const missingId = `session-${randomUUID()}`;
+  await mkdir(missingTarget, { recursive: true });
+  const missingPkg = join(missingWork, "pkg");
+  await mkdir(missingPkg, { recursive: true });
+  const missingHeader = JSON.stringify({ type: "session", version: 3, id: missingId, createdAt, cwd: fakeCwd, delegationDepth: 0 });
+  await writeFile(join(missingPkg, "session.v3.jsonl"), `${missingHeader}\n`);
+  await writeFile(join(missingPkg, "manifest.json"), JSON.stringify({
+    schema: 1, kind: "dsh-session-export", sessionId: missingId, version: 3, createdAt,
+    cwd: fakeCwd, delegationDepth: 0, logName: "session.v3.jsonl",
+    attachments: ["objects/aa/bb"], exportedAt: new Date().toISOString()
+  }, null, 2));
+  const missingArchive = join(missingWork, "pkg.zip");
+  await writeFile(missingArchive, makeZip([
+    { name: "manifest.json", data: await readFile(join(missingPkg, "manifest.json")) },
+    { name: "session.v3.jsonl", data: await readFile(join(missingPkg, "session.v3.jsonl")) }
+  ]));
+  const missingRes = await post("/import", { sourcePath: missingArchive, targetPath: missingTarget });
+  check(
+    "missing packaged attachment is reported",
+    missingRes.status === 200
+      && Array.isArray(missingRes.json?.missingAttachments)
+      && missingRes.json.missingAttachments.length === 1,
+    `status=${missingRes.status} missing=${JSON.stringify(missingRes.json?.missingAttachments)}`
+  );
+  if (missingRes.status === 200) {
+    const del = await post("/delete", { sessionId: missingId });
+    check("missing-attachment import cleaned up", del.status === 200, `status=${del.status}`);
+  }
+  await rm(join(sessionsRoot, projectKey(resolve(missingTarget))), { recursive: true, force: true });
+} finally {
+  await rm(missingWork, { recursive: true, force: true });
+}
+
+// --- 11. a manifest may name a log that exists but is a DIRECTORY; the read
+//         used to fail with a raw EISDIR (500) instead of a coded refusal.
+const dirLogWork = await mkdtemp(join(tmpdir(), "dsm-import-dirlog-"));
+try {
+  const dirLogTarget = join(dirLogWork, "workspace");
+  const dirLogId = `session-${randomUUID()}`;
+  await mkdir(dirLogTarget, { recursive: true });
+  const dirLogPkg = join(dirLogWork, "pkg");
+  await mkdir(join(dirLogPkg, "session.v3.jsonl"), { recursive: true });
+  await writeFile(join(dirLogPkg, "manifest.json"), JSON.stringify({
+    schema: 1, kind: "dsh-session-export", sessionId: dirLogId, version: 3, createdAt,
+    cwd: fakeCwd, delegationDepth: 0, logName: "session.v3.jsonl", attachments: []
+  }, null, 2));
+  const dirLogRes = await post("/import", { sourcePath: dirLogPkg, targetPath: dirLogTarget });
+  check(
+    "a log name that is a directory is refused",
+    dirLogRes.status === 400 && dirLogRes.json?.error?.code === "import-invalid-package",
+    `status=${dirLogRes.status} code=${dirLogRes.json?.error?.code}`
+  );
+  const dirLogProject = join(sessionsRoot, projectKey(resolve(dirLogTarget)));
+  check("directory-log package left no session directory", (await readdir(dirLogProject).catch(() => [])).length === 0);
+  const dirLogList = await post("/list", {});
+  check("list route healthy after the directory-log refusal", dirLogList.status === 200, `status=${dirLogList.status}`);
+  await rm(dirLogProject, { recursive: true, force: true });
+} finally {
+  await rm(dirLogWork, { recursive: true, force: true });
+}
+
+// --- 12. Backup -> Delete -> Import round trip: the restored session must land
+//         in its project folder (not one project deeper), and importing the same
+//         id again must be refused instead of installing a duplicate.
+const roundTripWork = await mkdtemp(join(tmpdir(), "dsm-import-roundtrip-"));
+try {
+  const roundTripTarget = join(roundTripWork, "workspace");
+  const roundTripId = `session-${randomUUID()}`;
+  await mkdir(roundTripTarget, { recursive: true });
+  const roundTripArchive = join(roundTripWork, "pkg.zip");
+  const roundTripHeader = JSON.stringify({ type: "session", version: 4, id: roundTripId, createdAt, cwd: fakeCwd, delegationDepth: 0 });
+  await writeFile(roundTripArchive, makeZip([
+    { name: "manifest.json", data: Buffer.from(JSON.stringify({
+      schema: 1, kind: "dsh-session-export", sessionId: roundTripId, version: 4, createdAt,
+      cwd: fakeCwd, delegationDepth: 0, logName: "session.v4.jsonl", attachments: []
+    }, null, 2)) },
+    { name: "session.v4.jsonl", data: Buffer.from(`${roundTripHeader}\n`) }
+  ]));
+  const firstImport = await post("/import", { sourcePath: roundTripArchive, targetPath: roundTripTarget });
+  check("first import of a fresh session succeeds", firstImport.status === 200, `status=${firstImport.status}`);
+  const backup = await post("/backup", { sessionId: roundTripId, targetDir: join(roundTripWork, "backups"), format: "targz" });
+  check("targz backup of the imported session succeeds", backup.status === 200, `status=${backup.status}`);
+  const deleted = await post("/delete", { sessionId: roundTripId });
+  check("deleting the session before the round trip succeeds", deleted.status === 200 && deleted.json.deleted === true, `status=${deleted.status}`);
+  const projectDir = join(sessionsRoot, projectKey(resolve(roundTripTarget)));
+  const reimport = await post("/import", { sourcePath: backup.json.backupPath, targetPath: roundTripTarget });
+  check(
+    "a targz backup re-imports into its project folder",
+    reimport.status === 200 && typeof reimport.json?.importPath === "string" && dirname(reimport.json.importPath) === projectDir,
+    `status=${reimport.status} path=${reimport.json?.importPath}`
+  );
+  const restoredHeader = await readLogHeader(join(projectDir, encodeSegment(roundTripId), reimport.json.logs[0]));
+  check(
+    "the restored header gains isSeeded (the harness lists headers without it as unreadable)",
+    restoredHeader?.isSeeded === false,
+    `isSeeded=${restoredHeader?.isSeeded}`
+  );
+  const duplicate = await post("/import", { sourcePath: backup.json.backupPath, targetPath: roundTripTarget });
+  check(
+    "importing an existing session id is refused",
+    duplicate.status === 409 && duplicate.json?.error?.code === "import-session-exists",
+    `status=${duplicate.status} code=${duplicate.json?.error?.code}`
+  );
+  const projectEntries = await readdir(projectDir).catch(() => []);
+  check(
+    "the project folder holds exactly one session directory (no nested project)",
+    projectEntries.length === 1 && projectEntries[0].startsWith("session-"),
+    projectEntries.join(",")
+  );
+  const roundTripList = await post("/list", {});
+  check(
+    "the restored session is listed",
+    Array.isArray(roundTripList.json.sessions) && roundTripList.json.sessions.some((s) => s.id === roundTripId),
+    `status=${roundTripList.status}`
+  );
+  const roundTripCleanup = await post("/delete", { sessionId: roundTripId });
+  check("round-trip session cleaned up", roundTripCleanup.status === 200 && roundTripCleanup.json.deleted === true, `status=${roundTripCleanup.status}`);
+  await rm(projectDir, { recursive: true, force: true });
+} finally {
+  await rm(roundTripWork, { recursive: true, force: true });
+}
+
 const failed = results.filter((ok) => !ok).length;
 console.log(failed === 0 ? "\nLIVE IMPORT TEST PASSED" : `\nLIVE IMPORT TEST FAILED (${failed} check(s))`);
 process.exit(failed === 0 ? 0 : 1);

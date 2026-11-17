@@ -101,10 +101,31 @@ try {
   const nowhere = await post("/move", { sessionId, targetPath: join(work, "does-not-exist") });
   check(
     "move to a missing destination is refused with a coded error",
-    nowhere.status === 500 && nowhere.json.error?.code === "target-invalid",
+    nowhere.status === 400 && nowhere.json.error?.code === "target-invalid",
     `status=${nowhere.status} code=${nowhere.json.error?.code}`
   );
   check("the refused move left the session where it was", (await exists(sessionDir(wsB))) && (await readLogHeader(join(sessionDir(wsB), logName))).cwd === resolve(wsB));
+
+  // --- bad requests answer a client-error status, never 500 (a 500 made every
+  // user mistake look like a server crash in the browser console and logs)
+  const noSessionId = await post("/move", {});
+  check(
+    "a missing sessionId is a 400, not a 500",
+    noSessionId.status === 400 && noSessionId.json.error?.code === "session-id-required",
+    `status=${noSessionId.status} code=${noSessionId.json.error?.code}`
+  );
+  const noTarget = await post("/move", { sessionId });
+  check(
+    "a missing destination path is a 400",
+    noTarget.status === 400 && noTarget.json.error?.code === "target-required",
+    `status=${noTarget.status} code=${noTarget.json.error?.code}`
+  );
+  const noSuchSession = await post("/move", { sessionId: "session-does-not-exist", targetPath: wsA });
+  check(
+    "an unknown session is a 404",
+    noSuchSession.status === 404 && noSuchSession.json.error?.code === "session-not-found",
+    `status=${noSuchSession.status} code=${noSuchSession.json.error?.code}`
+  );
 
   // --- archive / unarchive
   const archived = await post("/archive", { sessionId });
@@ -128,6 +149,17 @@ try {
   const members = readZip(await readFile(backedUp.json.backupPath)).map((m) => m.name);
   check("archive carries the current generation log", members.includes(logName), members.join(", "));
   check("manifest names the current generation log", backedUp.json.manifest?.logName === logName, String(backedUp.json.manifest?.logName));
+
+  // --- a backup folder that is actually a regular file must be a coded refusal,
+  //     not a raw EEXIST from mkdir
+  const fileAsDir = join(work, "backup-target-is-a-file.txt");
+  await writeFile(fileAsDir, "not a folder\n");
+  const fileBackup = await post("/backup", { sessionId, targetDir: fileAsDir, format: "zip" });
+  check(
+    "a backup folder that is a file is refused with a coded error",
+    fileBackup.status === 400 && fileBackup.json?.error?.code === "backup-dir-not-dir",
+    `status=${fileBackup.status} code=${fileBackup.json?.error?.code}`
+  );
 
   // --- delete
   const deleted = await post("/delete", { sessionId });
@@ -215,6 +247,12 @@ try {
     "import reports the restored archived state",
     archivedImport.status === 200 && archivedImport.json.archived === true,
     `status=${archivedImport.status} archived=${archivedImport.json.archived}`
+  );
+  check(
+    "the restored session landed in its project folder",
+    typeof archivedImport.json.importPath === "string"
+      && dirname(archivedImport.json.importPath) === join(sessionsRoot, projectKey(resolve(wsA))),
+    String(archivedImport.json.importPath)
   );
   const archivedList = await post("/list", {});
   check(

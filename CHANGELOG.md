@@ -4,6 +4,42 @@
 
 All notable changes to `dsh-session-mgr` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.10] - 2026-11-17
+
+### 中文
+
+#### 新增
+- **界面显示版本号。** 设置页标题旁与「移动」对话框底部会显示当前版本（`v0.6.10`）。版本号由 host 半边读取自身的 `package.json` 提供，因此升级后不用进 profile 目录确认，也不会随发版忘记更新。
+
+#### 修复
+- **参数错误不再以 500 返回。** 缺少 `sessionId`／目标路径、会话不存在、会话正在运行、备份撞名这类「调用方的问题」以前一律回 500，浏览器控制台与日志里看起来像服务器崩了。现在分别返回 `400`／`404`／`409`，只有真正的内部失败（服务不可用、导出校验失败等）仍为 500。界面行为不受影响（前端本来就按 JSON 里的 `error.code` 显示消息）。
+- **汇出包自相矛盾时不再装出「隐形会话」。** 如果包内 `manifest.json` 的 `sessionId` 与会话日志 header 里的 `id` 不一致，以前会照 manifest 的 id 建目录、日志却带着另一个 id——DSH 侧边栏按日志 id 列出、点开却定位不到，插件也管不了（列表里两个 id 都查不到）。现在会在写入后校验每个日志 header 的 id，不一致就整个回滚并返回 `import-session-mismatch`。
+- **手动压缩的会话文件夹也能汇入了。** 没有 `manifest.json` 的包会按日志档名回推会话身份，但以前只认得旧档名 `session.jsonl`（及其 `.zstd`）；现代 DSH 写的是 `session.v4.jsonl`，这类文件夹会被误判成「缺 manifest」而拒绝。现在会找出包内最新世代的正规日志档。
+- **汇入的会话不会再因为 header 缺 `isSeeded` 而变成「无法读取」。** 手工或第三方工具产出的包可能省略 header 的 `isSeeded` 字段；DSH 的会话语义要求这个字段，缺了就把整个会话目录列为 unreadable（列表里看不到、插件也管不了）。汇入时会在 header 补上 `isSeeded: false`（已有的值不覆盖）。
+- **汇入包不能再借 `manifest.json` 把文件写到会话目录之外。** 手工建立的文件夹包可以自订 `logName`；带路径分隔符的名字会让汇入把日志写到目标会话目录之外的项目目錄，而一个残留的 `*.jsonl*` 档足以让 DSH 判定整个 sessions 根目录不合法——之后所有会话列表都回 500。现在 `logName` 必须是单纯的档名且符合日志档名格式，否则整包拒绝（`import-invalid-package`）；写入端另做一次检查作为防线。
+- **包里声明却缺失的附件会在汇入时报告。** `manifest.json` 列出的附件若实际不在压缩包内，以前汇入静默成功、只还原了剩下的档案，直到还原后的会话第一次送出图片才报 `ATTACHMENT_NOT_FOUND`。现在汇入结果会带上 `missingAttachments`，界面在成功消息里一并警告（与备份端的同类警告对称）。
+- **启动中的会话列表形状一致。** harness 服务尚未就绪时 `/list` 回传的降级结果以前少了 `unreadable`／`backupDefaultDir`／`version` 三个栏位，设定页标题旁会短暂出现一个空的 `v`。现在降级结果与正常结果形状完全相同。
+- **删除后再汇入同一个会话，不会再装进多一层项目目录。** 以前汇入会从 registry 残留的 header 推导 sessions 根目录，少算一层，导致「备份 → 删除 → 汇入」以及「重复汇入同一个包」把会话装到 `<专案目录>/<专案目录>/<会话>`：列表里看不到、又被当成无法读取的会话，而「会话已存在」的防护也因为落到新路径而失效。现在会正确推导根目录，删除时也一并清掉 registry 里的 header／路径索引，重复汇入会如预期回 `409 import-session-exists`。
+- **日志档名指向目录时回 400，不再是原始 EISDIR 500。** 手工包的 `logName` 可能刚好与包内一个目录同名；以前读取时抛出未处理的 `EISDIR`，现在安装前会确认它是普通档案，否则以 `import-invalid-package` 拒绝。
+- **备份目标其实是个档案时回 400 `backup-dir-not-dir`，不再是原始 EEXIST 500。** 建立备份资料夹失败的常见情况（同名档案已存在、没有写入权限）现在都归一成同一个用户可读的错误码。
+
+### English
+
+#### Added
+- **The UI shows its own version.** The settings page title and the move dialog's footer display the running version (`v0.6.10`). The host half reads it from the plugin's own `package.json`, so an upgrade can be confirmed without digging through the profile directory and it cannot drift at release time.
+
+#### Fixes
+- **Bad requests no longer answer 500.** A missing `sessionId` or destination, an unknown session, a running session, or a backup name collision used to look like a server crash in the browser console and logs. They now return `400` / `404` / `409`; only genuine internal failures (unavailable services, export verification) stay 500. The UI is unaffected (it already renders the JSON `error.code`).
+- **A self-contradictory package no longer installs a "ghost" session.** When `manifest.json`'s `sessionId` disagreed with the `id` in the packaged session log's header, the import used to create a directory named after the manifest id while the log carried the other id: DSH's sidebar listed the log id but could not open it, and the plugin could manage neither id (both were missing from its list). Every installed log's header id is now verified after writing, and a mismatch rolls the whole import back with `import-session-mismatch`.
+- **Hand-zipped session folders import again.** A package without `manifest.json` derives the session identity from its log file name, but only the legacy `session.jsonl` (and its `.zstd` variant) was recognised; the generation file name a modern DSH writes (`session.v4.jsonl`) was rejected as "missing manifest". The newest canonical generation in the package is now used.
+- **An imported session can no longer be "unreadable" because its header lacks `isSeeded`.** A package produced by hand or by a third-party tool may omit the header's `isSeeded` field; the session backend requires it and lists the whole session folder as unreadable without it (invisible in the list, unmanageable by the plugin). The import now fills it in as `isSeeded: false` and never overwrites an existing value.
+- **A package can no longer use `manifest.json` to write files outside the session directory.** A hand-built folder package may name its log freely; a `logName` containing a path separator made the import write that log into the project folder instead of the session directory, and one stray `*.jsonl*` file is enough for DSH to reject the WHOLE sessions root — every later listing then answers 500. `logName` must now be a bare file name in the canonical log format, otherwise the package is refused (`import-invalid-package`); the install also re-checks the name as a second line of defence.
+- **Attachments a package lists but does not carry are reported on import.** A manifest whose `attachments` entries were missing from the archive used to import silently, restoring only the files that were present; the restored session then failed with `ATTACHMENT_NOT_FOUND` on its first send. The import result now carries `missingAttachments` and the UI warns in the success message (symmetric with the backup-side warning).
+- **The session listing has one shape while the harness starts up.** The degraded `/list` response returned before the services were ready used to omit `unreadable`, `backupDefaultDir` and `version`, which briefly rendered an empty `v` beside the settings title. It now returns exactly the same shape as a full listing.
+- **Delete then re-import no longer nests a session one project deep.** The import derived the sessions root from a header the registry still remembered and stopped one directory too high, so "backup → delete → import" and importing the same package twice installed the session under `<project>/<project>/<session>`: invisible to the list, reported as unreadable, and the "already exists" guard never fired because the nested path was new. The root is now derived correctly and a delete also drops the registry's header/path index, so a repeated import answers `409 import-session-exists` as intended.
+- **A log name that points at a directory answers 400 instead of a raw EISDIR 500.** A hand-built package can name its `logName` after a directory it also contains; reading it used to throw an unhandled `EISDIR`. The import now requires a regular file and refuses with `import-invalid-package` otherwise.
+- **A backup folder that is actually a file answers 400 `backup-dir-not-dir` instead of a raw EEXIST 500.** The common ways to fail creating the backup folder (a file with that name exists, no write permission) now map to one readable code.
+
 ## [0.6.9] - 2026-11-14
 
 ### 中文

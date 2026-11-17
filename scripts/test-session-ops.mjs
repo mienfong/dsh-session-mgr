@@ -10,11 +10,12 @@
 //   * pruneProjectionCacheRecord — delete is the only place an orphaned cache
 //     document can be reclaimed (the cache service has no eviction API).
 import assert from "node:assert/strict";
-import { constants, zstdCompressSync } from "node:zlib";
+import { constants, zstdCompressSync, zstdDecompressSync } from "node:zlib";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions, selectStaleTitleIds, pruneTitleCache, applyTitleResults } from "../lib/host.js";
+import { generationLogVersion, resolveExistingLogPath, retargetProjectionCache, pruneProjectionCacheRecord, encodeSegment, decodeSegment, findUnreadableSessions, selectStaleTitleIds, pruneTitleCache, applyTitleResults, errorStatus, emptyListing, findPackageLog, rewriteLogHeader, scanZstdFrames, VERSION } from "../lib/host.js";
 
 const CHECKSUM = { params: { [constants.ZSTD_c_checksumFlag]: 1 } };
 const exists = (path) => stat(path).then(() => true, () => false);
@@ -337,6 +338,114 @@ console.log("\napplyTitleResults");
 } finally {
   await rm(work, { recursive: true, force: true });
 }
+
+console.log("\nVERSION");
+check("is a semver-ish string", () => {
+  assert.match(VERSION, /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/, `unexpected version: ${VERSION}`);
+});
+check("matches the plugin's own package.json", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(VERSION, pkg.version, "the UI would show a different version than the package declares");
+});
+
+console.log("\nEMPTY LISTING");
+check("keeps the same shape as a full listing", () => {
+  const listing = emptyListing();
+  assert.deepEqual(
+    Object.keys(listing).sort(),
+    ["archivedSessionIds", "backupDefaultDir", "sessions", "unreadable", "version", "workspaces"],
+    "the degraded listing must not drop fields the client reads"
+  );
+  assert.ok(Array.isArray(listing.unreadable));
+  assert.ok(Array.isArray(listing.workspaces));
+  assert.ok(Array.isArray(listing.sessions));
+  assert.ok(Array.isArray(listing.archivedSessionIds));
+});
+check("reports the plugin version, not a blank line", () => {
+  assert.equal(emptyListing().version, VERSION);
+});
+
+console.log("\nPACKAGE LOG DISCOVERY");
+const pkgWork = await mkdtemp(join(tmpdir(), "dsm-pkg-log-"));
+try {
+  const modern = join(pkgWork, "modern");
+  const legacy = join(pkgWork, "legacy");
+  const tie = join(pkgWork, "tie");
+  const none = join(pkgWork, "none");
+  for (const dir of [modern, legacy, tie, none]) await mkdir(dir, { recursive: true });
+  await writeFile(join(modern, "session.v4.jsonl"), "header\n");
+  await writeFile(join(legacy, "session.jsonl"), "header\n");
+  await writeFile(join(tie, "session.v4.jsonl"), "header\n");
+  await writeFile(join(tie, "session.v4.jsonl.zstd"), "header\n");
+  const modernLog = await findPackageLog(modern);
+  const legacyLog = await findPackageLog(legacy);
+  const tieLog = await findPackageLog(tie);
+  const noneLog = await findPackageLog(none);
+  check("finds the generation filename a modern harness writes", () => {
+    assert.equal(modernLog, "session.v4.jsonl", "a hand-zipped session folder must still import");
+  });
+  check("still finds the legacy unversioned filename", () => {
+    assert.equal(legacyLog, "session.jsonl");
+  });
+  check("prefers the plain file when both containers of one generation exist", () => {
+    assert.equal(tieLog, "session.v4.jsonl");
+  });
+  check("returns undefined for a directory without a session log", () => {
+    assert.equal(noneLog, undefined);
+  });
+} finally {
+  await rm(pkgWork, { recursive: true, force: true });
+}
+
+console.log("\nHEADER DEFAULTS");
+check("a plaintext import header gains isSeeded when the package omitted it", () => {
+  const raw = Buffer.from('{"type":"session","version":4,"id":"session-x","cwd":"D:/Old"}\n{"type":"turn/start"}\n');
+  const out = rewriteLogHeader(raw, "D:/New", false, { isSeeded: false }).toString("utf8");
+  const header = JSON.parse(out.slice(0, out.indexOf("\n")));
+  assert.equal(header.cwd, "D:/New");
+  assert.equal(header.isSeeded, false);
+  assert.equal(header.id, "session-x");
+  assert.ok(out.endsWith('{"type":"turn/start"}\n'));
+});
+check("a zstd import header gains isSeeded without touching the event frames", () => {
+  const header = '{"type":"session","version":4,"id":"session-y","cwd":"D:/Old"}';
+  const raw = Buffer.concat([frame(header), frame('{"type":"turn/start"}')]);
+  const out = rewriteLogHeader(raw, "D:/New", true, { isSeeded: false });
+  const { frames } = scanZstdFrames(out);
+  assert.equal(frames.length, 2);
+  const first = zstdDecompressSync(out.subarray(frames[0].start, frames[0].end)).toString("utf8");
+  const parsed = JSON.parse(first.slice(0, first.indexOf("\n")));
+  assert.equal(parsed.cwd, "D:/New");
+  assert.equal(parsed.isSeeded, false);
+});
+check("an existing isSeeded value is never overwritten", () => {
+  const raw = Buffer.from('{"type":"session","version":4,"id":"session-z","isSeeded":true,"cwd":"D:/Old"}\n');
+  const out = rewriteLogHeader(raw, "D:/New", false, { isSeeded: false }).toString("utf8");
+  assert.equal(JSON.parse(out.slice(0, out.indexOf("\n"))).isSeeded, true);
+});
+
+console.log("\nERROR STATUS");
+check("a missing body field is a bad request", () => {
+  assert.equal(errorStatus("session-id-required"), 400);
+  assert.equal(errorStatus("target-required"), 400);
+  assert.equal(errorStatus("unsafe-archive-member"), 400);
+  assert.equal(errorStatus("import-invalid-package"), 400);
+  assert.equal(errorStatus("import-session-mismatch"), 400);
+});
+check("a conflict with the current state is 409", () => {
+  assert.equal(errorStatus("session-running"), 409);
+  assert.equal(errorStatus("already-in-workspace"), 409);
+  assert.equal(errorStatus("backup-collision"), 409);
+});
+check("a missing session is 404", () => {
+  assert.equal(errorStatus("session-not-found"), 404);
+  assert.equal(errorStatus("artifact-missing"), 404);
+});
+check("an internal failure stays 500", () => {
+  assert.equal(errorStatus("registry-unavailable"), 500);
+  assert.equal(errorStatus("backup-verify-failed"), 500);
+  assert.equal(errorStatus(undefined), 500);
+});
 
 console.log(failures === 0 ? "\nall session-ops checks passed" : `\n${failures} check(s) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

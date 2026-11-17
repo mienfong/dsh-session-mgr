@@ -92,6 +92,47 @@ try {
   check("list route healthy after cleanup", after.status === 200, `status=${after.status}`);
 }
 
+// A directory package (no archive) is imported in place, so a manifest.logName
+// carrying "../" would be joined against BOTH the package directory (read) and
+// the session directory (write). The write is the dangerous half: a stray
+// "*.jsonl*" file left in a project folder makes DSH reject the WHOLE sessions
+// root, so every list call breaks. The import must refuse the name up front.
+const work2 = await mkdtemp(join(tmpdir(), "dsm-logname-live-"));
+const target2 = join(work2, "workspace");
+const sessionId2 = `session-${randomUUID()}`;
+const sentinel2 = `dsm-logname-${randomUUID()}.jsonl.zstd`;
+const dest2 = join(sessionsRoot, projectKey(target2), encodeSegment(sessionId2));
+const stray2 = join(sessionsRoot, projectKey(target2), sentinel2);
+try {
+  await mkdir(target2, { recursive: true });
+  const pkg = join(work2, "pkg");
+  await mkdir(pkg, { recursive: true });
+  const header2 = JSON.stringify({
+    type: "session", version: 3, id: sessionId2, createdAt: Date.now(), cwd: "D:\\OtherMachine\\X",
+    isSeeded: false, delegationDepth: 0
+  });
+  await writeFile(join(pkg, "manifest.json"), JSON.stringify({
+    schema: 1, kind: "dsh-session-export", sessionId: sessionId2, version: 3, createdAt: Date.now(),
+    cwd: "D:\\OtherMachine\\X", logName: `../${sentinel2}`, attachments: []
+  }));
+  await writeFile(join(pkg, "session.v3.jsonl"), `${header2}\n`);
+  await writeFile(join(work2, sentinel2), `${header2}\n`);
+
+  const res2 = await post("/import", { sourcePath: pkg, targetPath: target2 });
+  const code2 = res2.json && res2.json.error && typeof res2.json.error === "object" ? res2.json.error.code : undefined;
+  check("directory package with a trailing-evil logName is refused", res2.status === 400 && code2 === "import-invalid-package", `status=${res2.status} code=${code2}`);
+  check("no stray log file was written into the project folder", !(await exists(stray2)), stray2);
+  check("no session directory was created for the refused package", !(await exists(dest2)), dest2);
+  const list2 = await post("/list", {});
+  const listed2 = Array.isArray(list2.json.sessions) ? list2.json.sessions.some((s) => s.id === sessionId2) : false;
+  check("list route healthy after the refused directory package", list2.status === 200 && !listed2, `status=${list2.status} listed=${listed2}`);
+} finally {
+  await rm(stray2, { force: true });
+  await rm(dest2, { recursive: true, force: true });
+  await rm(join(sessionsRoot, projectKey(target2)), { recursive: true, force: true });
+  await rm(work2, { recursive: true, force: true });
+}
+
 const failed = results.filter((ok) => !ok).length;
 console.log(failed === 0 ? "\nLIVE ZIP-SLIP TEST PASSED" : `\nLIVE ZIP-SLIP TEST FAILED (${failed} check(s))`);
 process.exit(failed === 0 ? 0 : 1);
